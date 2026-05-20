@@ -30,6 +30,7 @@ use App\Http\Controllers\Asesor\PengaturanController;
 use App\Http\Controllers\Asesor\FormulirController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Admin\SertifikatController;
 
 
 // Pendaftaran Routes
@@ -236,6 +237,13 @@ Route::prefix('admin')
                 ->name('chat.get-chats');
             Route::get('/livechat/get-stats', [\App\Http\Controllers\Admin\ChatController::class, 'getStats'])
                 ->name('chat.get-stats');
+
+            // Sertifikat Management (Admin)
+            Route::get('/pengajuan/{id}/sertifikat/create', [SertifikatController::class, 'create'])
+                ->name('sertifikat.create');
+            Route::post('/pengajuan/{id}/sertifikat', [SertifikatController::class, 'store'])
+                ->name('sertifikat.store');
+
         });
 
 

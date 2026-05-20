@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-
 class PengajuanSkema extends Model
 {
     protected $table = 'pengajuan_skema';
@@ -163,6 +162,10 @@ public function formulirAsesmen()
     return $this->hasMany(FormulirAsesmen::class, 'pengajuan_skema_id');
 }
 
+public function sertifikat(): HasOne
+{
+    return $this->hasOne(Sertifikat::class, 'pengajuan_skema_id');
+}
 
 
 }

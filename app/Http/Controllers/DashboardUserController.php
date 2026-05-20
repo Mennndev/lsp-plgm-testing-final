@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JadwalAsesmen;
 use App\Models\PengajuanSkema;
+use App\Models\Sertifikat;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardUserController extends Controller
@@ -40,12 +41,27 @@ class DashboardUserController extends Controller
             ->where('user_id', $user->id)
             ->latest('tanggal_pengajuan')
             ->get();
-        
-        $riwayatList   = collect();  // data untuk tabel "Riwayat Asesmen"
+
+       $riwayatList = Sertifikat::with(['pengajuan.program'])
+    ->where('user_id', $user->id)
+    ->latest('tanggal_terbit')
+    ->get()
+    ->map(function ($sertifikat) {
+        return (object) [
+            'nama_skema' => $sertifikat->pengajuan->program->nama ?? '-',
+            'jenis_bukti' => $sertifikat->jenis_bukti ?? 'Sertifikat Kompetensi',
+            'nomor_sertifikat' => $sertifikat->nomor_sertifikat ?? '-',
+            'tanggal_berlaku' => $sertifikat->tanggal_berlaku_sampai
+                ? $sertifikat->tanggal_berlaku_sampai->format('d/m/Y')
+                : '-',
+            'status' => $sertifikat->status_sertifikat,
+            'file_sertifikat' => $sertifikat->file_sertifikat,
+        ];
+    }); // data untuk tabel "Riwayat Asesmen"
 
         // Hitung notifikasi yang belum dibaca
         $notificationCount = $user->unreadNotificationCount();
-        
+
         // Ambil 5 notifikasi terbaru untuk dropdown
         $latestNotifications = $user->notifications()->take(5)->get();
 

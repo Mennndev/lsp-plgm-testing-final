@@ -341,26 +341,35 @@
                             <th>Nomor Sertifikat</th>
                             <th>Tanggal Berlaku</th>
                             <th>Status</th>
+                            <th>Aksi</th>
                         </tr>
                         </thead>
                         <tbody>
                         @forelse($riwayatList as $riwayat)
-                            {{-- TODO: sesuaikan field dengan kolom tabel riwayat asesmen --}}
-                            <tr>
-                                <td>{{ $riwayat->nama_skema ?? '-' }}</td>
-                                <td>{{ $riwayat->jenis_bukti ?? '-' }}</td>
-                                <td>{{ $riwayat->nomor_sertifikat ?? '-' }}</td>
-                                <td>{{ $riwayat->tanggal_berlaku ?? '-' }}</td>
-                                <td>{{ $riwayat->status ?? '-' }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="text-center empty-table">
-                                    <i class="fa fa-inbox empty-icon"></i>
-                                    <p>Tidak ada data</p>
-                                </td>
-                            </tr>
-                        @endforelse
+                        <tr>
+                            <td>{{ $riwayat->nama_skema ?? '-' }}</td>
+                            <td>{{ $riwayat->jenis_bukti ?? '-' }}</td>
+                            <td>{{ $riwayat->nomor_sertifikat ?? '-' }}</td>
+                            <td>{{ $riwayat->tanggal_berlaku ?? '-' }}</td>
+                            <td>{{ $riwayat->status ?? '-' }}</td>
+                            <td>
+                                @if(!empty($riwayat->file_sertifikat))
+                                    <a href="{{ asset('storage/' . $riwayat->file_sertifikat) }}" target="_blank" class="btn btn-sm btn-primary">
+                                        Download
+                                    </a>
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center empty-table">
+                                <i class="fa fa-inbox empty-icon"></i>
+                                <p>Tidak ada data</p>
+                            </td>
+                        </tr>
+                    @endforelse
                         </tbody>
                     </table>
                 </div>
@@ -439,7 +448,7 @@
 
 {{-- Live Chat Widget Button --}}
 <div id="chatWidget">
-    <a href="{{ route('chat.index') }}" class="btn btn-primary btn-lg rounded-circle chat-widget-button" 
+    <a href="{{ route('chat.index') }}" class="btn btn-primary btn-lg rounded-circle chat-widget-button"
        title="Live Chat">
         <i class="bi bi-chat-dots"></i>
     </a>

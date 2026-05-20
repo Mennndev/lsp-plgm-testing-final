@@ -40,9 +40,54 @@
 
     @if($pengajuan->jadwalAsesmen)
         <div class="alert alert-info mt-3 mb-0">
-            Jadwal saat ini: <strong>{{ $pengajuan->jadwalAsesmen->tanggal_mulai->format('d/m/Y H:i') }}</strong>
+            Jadwal saat ini:
+            <strong>{{ $pengajuan->jadwalAsesmen->tanggal_mulai->format('d/m/Y H:i') }}</strong>
             ({{ strtoupper($pengajuan->jadwalAsesmen->mode_asesmen) }})
-            @if($pengajuan->jadwalAsesmen->asesor) - Asesor: {{ $pengajuan->jadwalAsesmen->asesor->nama ?? $pengajuan->jadwalAsesmen->asesor->name }} @endif
+
+            @if($pengajuan->jadwalAsesmen->asesor)
+                - Asesor:
+                {{ $pengajuan->jadwalAsesmen->asesor->nama ?? $pengajuan->jadwalAsesmen->asesor->name }}
+            @endif
+
+            <br>
+            Status asesmen:
+            <span class="badge bg-{{ $pengajuan->jadwalAsesmen->status_badge ?? 'secondary' }}">
+                {{ $pengajuan->jadwalAsesmen->status_label ?? ucfirst($pengajuan->jadwalAsesmen->status) }}
+            </span>
+        </div>
+
+        @if($pengajuan->jadwalAsesmen->status === 'completed')
+            @if($pengajuan->sertifikat)
+                <div class="alert alert-success mt-3 mb-0">
+                    <i class="bi bi-award"></i>
+                    Sertifikat sudah diterbitkan dengan nomor:
+                    <strong>{{ $pengajuan->sertifikat->nomor_sertifikat }}</strong>
+
+                    @if($pengajuan->sertifikat->file_sertifikat)
+                        <br>
+                        <a href="{{ asset('storage/' . $pengajuan->sertifikat->file_sertifikat) }}"
+                           target="_blank"
+                           class="btn btn-sm btn-success mt-2">
+                            <i class="bi bi-file-earmark-pdf"></i> Lihat Sertifikat
+                        </a>
+                    @endif
+                </div>
+            @else
+                <a href="{{ route('admin.sertifikat.create', $pengajuan->id) }}"
+                   class="btn btn-warning mt-3">
+                    <i class="bi bi-award"></i> Terbitkan Sertifikat
+                </a>
+            @endif
+        @else
+            <div class="alert alert-warning mt-3 mb-0">
+                <i class="bi bi-info-circle"></i>
+                Sertifikat belum bisa diterbitkan karena asesmen belum selesai.
+            </div>
+        @endif
+    @else
+        <div class="alert alert-warning mt-3 mb-0">
+            <i class="bi bi-info-circle"></i>
+            Jadwal asesmen belum dibuat. Sertifikat belum bisa diterbitkan.
         </div>
     @endif
 </div>
