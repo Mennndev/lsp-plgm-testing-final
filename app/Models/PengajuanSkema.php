@@ -19,6 +19,8 @@ class PengajuanSkema extends Model
         'tanggal_disetujui',
         'catatan_admin',
         'approved_by',
+        'transaction_time',
+        'gross_amount',
     ];
 
     protected $casts = [
@@ -86,6 +88,7 @@ class PengajuanSkema extends Model
             'approved' => 'success',
             'rejected' => 'danger',
             'draft' => 'secondary',
+            'paid' => 'primary',
             default => 'secondary',
         };
     }
@@ -97,6 +100,7 @@ class PengajuanSkema extends Model
             'approved' => 'Disetujui',
             'rejected' => 'Ditolak',
             'draft' => 'Draft',
+            'paid' => 'Sudah Dibayar',
             default => ucfirst($this->status),
         };
     }
