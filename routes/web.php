@@ -166,7 +166,7 @@ Route::get('/livechat/get-chats', [ChatController::class, 'getChats'])->name('ch
 
 //Admin Routes
 Route::prefix('admin')
-    ->middleware('auth')
+    ->middleware(['auth', 'admin'])
     ->name('admin.')
     ->group(function () {
 // Dashboard Admin Route

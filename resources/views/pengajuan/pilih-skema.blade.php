@@ -617,7 +617,7 @@
                         <!-- Card Body -->
                         <div class="card-body-section">
                             <div class="card-description">
-                                {{ $program->deskripsi ?? 'Program sertifikasi kompetensi profesional yang diakui secara nasional sesuai standar industri.' }}
+                                {{ $program->deskripsi_singkat ?? 'Program sertifikasi kompetensi profesional yang diakui secara nasional sesuai standar industri.' }}
                             </div>
                         </div>
 
@@ -680,13 +680,13 @@
             cards.forEach(card => {
                 const text = card.textContent.toLowerCase();
                 const status = card.getAttribute('data-status');
-                
+
                 // Check if card matches search term
                 const matchesSearch = !currentSearchTerm || text.includes(currentSearchTerm);
-                
+
                 // Check if card matches filter
                 const matchesFilter = currentFilter === 'all' || currentFilter === status;
-                
+
                 // Show card only if it matches both conditions
                 if (matchesSearch && matchesFilter) {
                     card.style.display = '';
@@ -699,7 +699,7 @@
             // Update no results display
             const cardsGrid = document.getElementById('cardsGrid');
             const noResults = document.getElementById('noResults');
-            
+
             if (visibleCount === 0 && cards.length > 0) {
                 cardsGrid.style.display = 'none';
                 noResults.style.display = 'block';
@@ -719,7 +719,7 @@
 
         // Filter functionality
         const filterButtons = document.querySelectorAll('.filter-btn');
-        
+
         filterButtons.forEach(button => {
             button.addEventListener('click', function() {
                 // Update active state
@@ -734,12 +734,12 @@
         // Animate cards on load
         window.addEventListener('DOMContentLoaded', function() {
             const cards = document.querySelectorAll('.skema-card');
-            
+
             cards.forEach((card, index) => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
                 card.style.transition = 'all 0.5s ease';
-                
+
                 // Stagger the animation for each card
                 setTimeout(() => {
                     card.style.opacity = '1';

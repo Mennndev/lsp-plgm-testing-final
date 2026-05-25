@@ -68,7 +68,7 @@ class StorePengajuanRequest extends FormRequest
          */
         if ($step >= 3) {
             $rules['self_assessment'] = 'required|array|min:1';
-            $rules['self_assessment.*'] = 'required|array';
+            $rules['self_assessment.*'] = ['required', Rule::in(['K', 'BK'])];
 
             $rules['portfolio'] = 'nullable|array';
             $rules['portfolio.*.*'] = 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048';

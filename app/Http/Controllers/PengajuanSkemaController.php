@@ -112,7 +112,7 @@ if ($request->has('self_assessment')) {
         \App\Models\PengajuanSelfAssessment::create([
             'pengajuan_skema_id' => $pengajuan->id,
             'kriteria_unjuk_kerja_id' => $kukId,
-            'status' => $status, // "K" atau "BK"
+            'nilai' => $status, // "K" atau "BK"
         ]);
     }
 }

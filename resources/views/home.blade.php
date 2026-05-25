@@ -243,7 +243,7 @@
                 <button type="button" class="kategori-link" data-filter="digital-marketing">
                 Pemasaran
                 </button>
-                <a href="{{ url('skema.index') }}" class="kategori-seeall">Lihat Semua →</a>
+                <a href="{{ route('skema.index') }}" class="kategori-seeall">Lihat Semua →</a>
             </div>
         </div>
     </div>
