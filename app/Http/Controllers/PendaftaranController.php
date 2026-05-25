@@ -44,7 +44,7 @@ class PendaftaranController extends Controller
             'email'     => $validated['email'],
             'no_hp'     => $validated['no_hp'],
             'password'  => Hash::make($validated['password']),
-            'role'      => 'user ',      // sesuai enum di tabel users
+            'role'      => 'user',      // sesuai enum di tabel users
         ]);
 
         // 2) SIMPAN TTD (base64) → file → kolom ttd_path

@@ -56,7 +56,7 @@ Route::get('/struktur-organisasi', [StrukturOrganisasicontroller::class, 'index'
 
 //skema sertifikasi routes
 Route::get('/skema-sertifikasi', [Skemacontroller::class, 'index'])->name('skema.index');
-Route::get('/skema/{program:slug}', [SkemaController::class, 'show'])
+Route::get('/skema/{program:slug}', )
     ->name('skema.show');
 
 Route::get('/tempat-sertifikasi', function () {
@@ -88,7 +88,7 @@ Route::get('/', [Homecontroller::class, 'index'])->name('home');
 Route::get('/berita', [BeritaController::class, 'index'])->name('berita.index');
 Route::get('/berita/{slug}', [BeritaController::class, 'show'])->name('berita.show');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth',])->group(function () {
 
     // Dashboard utama user
     Route::get('/dashboard-user', [DashboardUserController::class, 'index'])

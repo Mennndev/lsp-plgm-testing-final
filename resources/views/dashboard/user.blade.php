@@ -48,7 +48,7 @@
             </li>
             {{-- Live Chat Menu --}}
             <li>
-                <a href="{{ route('chat.index') }}" class="menu-link">
+                <a href="{{ route('chat.index') }}">
                     <i class="bi bi-chat-dots"></i> Live Chat
                 </a>
             </li>
@@ -230,9 +230,9 @@
                                 <td>{{ $asesmen->status_asesmen ?? '-' }}</td>
                                 <td>
                                     {{-- contoh tombol detail --}}
-                                    <button class="btn btn-xs btn-primary btn-custom">
-                                        Detail
-                                    </button>
+                                    <a href="{{ route('pengajuan.show', $asesmen->pengajuan_id) }}" class="btn btn-xs btn-primary btn-custom">
+                                    Detail
+                                </a>
                                 </td>
                             </tr>
                         @empty

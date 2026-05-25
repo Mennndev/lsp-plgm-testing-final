@@ -54,7 +54,7 @@ class PengajuanSkemaController extends Controller
             ->first();
 
         if ($existingPengajuan) {
-            return redirect()->route('dashboard')
+            return redirect()->route('dashboard.user')
                 ->with('error', 'Anda sudah mengajukan skema ini dan sedang dalam proses review.');
         }
 

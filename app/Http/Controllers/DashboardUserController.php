@@ -22,6 +22,7 @@ class DashboardUserController extends Controller
             ->get()
             ->map(function ($jadwal) {
                 return (object) [
+                    'pengajuan_id' => $jadwal->pengajuan_skema_id,
                     'kode' => 'ASM-' . str_pad((string) $jadwal->id, 5, '0', STR_PAD_LEFT),
                     'skema_nama' => $jadwal->pengajuan->program->nama ?? '-',
                     'tuk_nama' => $jadwal->mode_asesmen === 'online' ? 'Online Meeting' : 'TUK',

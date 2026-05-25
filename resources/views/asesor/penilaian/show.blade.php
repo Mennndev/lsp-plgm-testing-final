@@ -30,21 +30,21 @@
 @php
     $totalKUK = 0;
     $dinilaiKUK = 0;
-    
+
     // Calculate total KUK
     foreach($pengajuan->program->units as $unit) {
         foreach($unit->elemenKompetensis as $elemen) {
             $totalKUK += $elemen->kriteriaUnjukKerja->count();
         }
     }
-    
+
     // Count already assessed KUK from PengajuanAsesorAssessment table
     if ($totalKUK > 0) {
         $dinilaiKUK = \App\Models\PengajuanAsesorAssessment::where('pengajuan_skema_id', $pengajuan->id)
             ->where('asesor_id', Auth::id())
             ->count();
     }
-    
+
     // Calculate percentage
     $persentase = $totalKUK > 0 ? round(($dinilaiKUK / $totalKUK) * 100) : 0;
 @endphp
@@ -74,26 +74,36 @@
                     <div class="elemen-section">
                         <h6>{{ $elemen->nama_elemen }}</h6>
 
-                        @foreach($elemen->kriteriaUnjukKerja as $kuk)
-                            <div class="kuk-item">
-                                <label for="nilai_{{ $kuk->id }}">
-                                    <i class="bi bi-check2-square text-primary"></i> {{ $kuk->deskripsi }}
-                                </label>
+                       @foreach($elemen->kriteriaUnjukKerja as $kuk)
+                        @php
+                            $nilaiTersimpan = $penilaianTersimpan[$kuk->id]->nilai ?? null;
+                            $catatanTersimpan = $penilaianTersimpan[$kuk->id]->catatan ?? null;
+                        @endphp
 
-                                <div class="row g-3 mt-1">
-                                    <div class="col-lg-4 col-md-5">
-                                        <select id="nilai_{{ $kuk->id }}" name="nilai[{{ $kuk->id }}]" class="form-select" required>
-                                            <option value="">-- Pilih Penilaian --</option>
-                                            <option value="k" {{ old('nilai.' . $kuk->id) === 'kompeten' ? 'selected' : '' }}>✓ Kompeten</option>
-                                            <option value="bk" {{ old('nilai.' . $kuk->id) === 'belum_kompeten' ? 'selected' : '' }}>✗ Belum Kompeten</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-lg-8 col-md-7">
-                                        <textarea name="catatan[{{ $kuk->id }}]" class="form-control" rows="2" placeholder="Catatan untuk kriteria ini (opsional)">{{ old('catatan.' . $kuk->id) }}</textarea>
-                                    </div>
+                        <div class="kuk-item">
+                            <label for="nilai_{{ $kuk->id }}">
+                                <i class="bi bi-check2-square text-primary"></i> {{ $kuk->deskripsi }}
+                            </label>
+
+                            <div class="row g-3 mt-1">
+                                <div class="col-lg-4 col-md-5">
+                                    <select id="nilai_{{ $kuk->id }}" name="nilai[{{ $kuk->id }}]" class="form-select" required>
+                                        <option value="">-- Pilih Penilaian --</option>
+                                        <option value="K" {{ old('nilai.' . $kuk->id, $nilaiTersimpan) === 'K' ? 'selected' : '' }}>
+                                            ✓ Kompeten
+                                        </option>
+                                        <option value="BK" {{ old('nilai.' . $kuk->id, $nilaiTersimpan) === 'BK' ? 'selected' : '' }}>
+                                            ✗ Belum Kompeten
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="col-lg-8 col-md-7">
+                                    <textarea name="catatan[{{ $kuk->id }}]" class="form-control" rows="2" placeholder="Catatan untuk kriteria ini (opsional)">{{ old('catatan.' . $kuk->id, $catatanTersimpan) }}</textarea>
                                 </div>
                             </div>
-                        @endforeach
+                        </div>
+                    @endforeach
                     </div>
                 @empty
                     <p class="text-muted mb-0">Belum ada elemen kompetensi untuk unit ini.</p>

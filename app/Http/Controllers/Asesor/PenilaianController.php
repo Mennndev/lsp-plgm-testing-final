@@ -15,18 +15,39 @@ class PenilaianController extends Controller
         $pengajuan = PengajuanSkema::whereHas('asesors', function ($query) {
                 $query->where('users.id', Auth::id());
             })
-            ->with('user', 'program.units.elemenKompetensis.kriteriaUnjukKerja')
+            ->with([
+                'user',
+                'program.units.elemenKompetensis.kriteriaUnjukKerja',
+                'asesorAssessments' => function ($query) {
+                    $query->where('asesor_id', Auth::id());
+                },
+            ])
             ->findOrFail($pengajuanId);
 
-        return view('asesor.penilaian.show', compact('pengajuan'));
+        $penilaianTersimpan = $pengajuan->asesorAssessments
+            ->keyBy('kriteria_unjuk_kerja_id');
+
+        return view('asesor.penilaian.show', compact('pengajuan', 'penilaianTersimpan'));
     }
 
     public function store(Request $request, $pengajuanId)
     {
+        $request->validate([
+            'nilai' => ['required', 'array'],
+            'nilai.*' => ['required', 'in:K,BK'],
+            'catatan' => ['nullable', 'array'],
+            'catatan.*' => ['nullable', 'string'],
+        ]);
+
+        $pengajuan = PengajuanSkema::whereHas('asesors', function ($query) {
+                $query->where('users.id', Auth::id());
+            })
+            ->findOrFail($pengajuanId);
+
         foreach ($request->nilai as $kukId => $nilai) {
             PengajuanAsesorAssessment::updateOrCreate(
                 [
-                    'pengajuan_skema_id' => $pengajuanId,
+                    'pengajuan_skema_id' => $pengajuan->id,
                     'kriteria_unjuk_kerja_id' => $kukId,
                     'asesor_id' => Auth::id(),
                 ],
@@ -37,6 +58,8 @@ class PenilaianController extends Controller
             );
         }
 
-        return redirect()->route('asesor.dashboard')->with('success', 'Penilaian berhasil disimpan');
+        return redirect()
+            ->route('asesor.dashboard')
+            ->with('success', 'Penilaian berhasil disimpan');
     }
 }

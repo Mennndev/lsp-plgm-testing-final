@@ -257,9 +257,15 @@
                     <div class="col-md-4 kategori-item"
                          data-kategori="{{ $program->kategori_slug }}">
                         <div class="card skema-card h-100 shadow-sm border-0">
-                            {{-- asumsikan $program->gambar menyimpan path relatif storage,
-                                 misal "programs/operator-komputer.png" --}}
-                           <img src="{{ Storage::url($program->gambar) }}" class="card-img-top" alt="{{ $program->nama }}">
+                           @if ($program->gambar)
+                            <img src="{{ asset('storage/' . $program->gambar) }}"
+                                 class="card-img-top"
+                                 alt="{{ $program->nama }}">
+                        @else
+                            <img src="{{ asset('images/default-skema.png') }}"
+                                 class="card-img-top"
+                                 alt="{{ $program->nama }}">
+                        @endif
 
                             <div class="card-body d-flex flex-column">
                                 <h5 class="card-title mb-1">{{ $program->nama }}</h5>
