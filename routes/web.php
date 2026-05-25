@@ -56,7 +56,7 @@ Route::get('/struktur-organisasi', [StrukturOrganisasicontroller::class, 'index'
 
 //skema sertifikasi routes
 Route::get('/skema-sertifikasi', [Skemacontroller::class, 'index'])->name('skema.index');
-Route::get('/skema/{program:slug}', )
+Route::get('/skema/{program:slug}', [Skemacontroller::class, 'show'])
     ->name('skema.show');
 
 Route::get('/tempat-sertifikasi', function () {
