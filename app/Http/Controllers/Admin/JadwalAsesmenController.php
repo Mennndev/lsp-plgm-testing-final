@@ -20,15 +20,15 @@ class JadwalAsesmenController extends Controller
             ->latest('tanggal_mulai');
 
         if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
+            $query->where('status', $request->input('status'));
         }
 
         if ($request->filled('tanggal_dari')) {
-            $query->whereDate('tanggal_mulai', '>=', $request->string('tanggal_dari'));
+            $query->whereDate('tanggal_mulai', '>=', $request->input('tanggal_dari'));
         }
 
         if ($request->filled('tanggal_sampai')) {
-            $query->whereDate('tanggal_mulai', '<=', $request->string('tanggal_sampai'));
+            $query->whereDate('tanggal_mulai', '<=', $request->input('tanggal_sampai'));
         }
 
         if ($request->filled('search')) {

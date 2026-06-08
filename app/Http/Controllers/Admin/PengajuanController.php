@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PengajuanSkema;
+use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
-use App\Models\PengajuanBuktiKompetensi;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PengajuanController extends Controller
 {
@@ -40,9 +39,9 @@ class PengajuanController extends Controller
         // Search
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
-            $query->whereHas('user', function($q) use ($search) {
+            $query->whereHas('user', function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -53,68 +52,68 @@ class PengajuanController extends Controller
     }
 
     public function show($id)
-{
-   $pengajuan = PengajuanSkema::with([
-    'user',
-    'program',
-    'apl01',
-    'buktiKompetensi.kuk.elemen.unit',
-    'pengajuanBuktiAdministratif',
-    'pengajuanBuktiPortofolio',
-    'pengajuanPersyaratanDasar',
-    'pembayaran',
-    'approver',
-    'jadwalAsesmen.asesor'
-])->findOrFail($id);
+    {
+        $pengajuan = PengajuanSkema::with([
+            'user',
+            'program',
+            'apl01',
+            'buktiKompetensi.kuk.elemen.unit',
+            'pengajuanBuktiAdministratif',
+            'pengajuanBuktiPortofolio',
+            'pengajuanPersyaratanDasar',
+            'pembayaran',
+            'approver',
+            'jadwalAsesmen.asesor',
+            'sertifikat',
+            'asesors',
+        ])->findOrFail($id);
 
+        $selfAssessments = $pengajuan->selfAssessments()->with('kuk.elemen.unit')->get();
+        $buktiKompetensi = $pengajuan->buktiKompetensi;
+        $listAsesor = User::where('role', 'asesor')->get();
+        $assignedAsesorId = $pengajuan->asesors->first()?->id;
 
-    $selfAssessments = $pengajuan->selfAssessments()->with('kuk.elemen.unit')->get();
-    $buktiKompetensi = $pengajuan->buktiKompetensi;
-    $listAsesor = User::where('role', 'asesor')->get();
-
-
-
-    return view('admin.pengajuan.show', compact('pengajuan', 'selfAssessments', 'buktiKompetensi', 'listAsesor'));
-}
+        return view('admin.pengajuan.show', compact('pengajuan', 'selfAssessments', 'buktiKompetensi', 'listAsesor', 'assignedAsesorId'));
+    }
 
     public function approve($id, Request $request)
-{
-    $request->validate([
-        'catatan_admin' => 'nullable|string'
-    ]);
+    {
+        $request->validate([
+            'catatan_admin' => 'nullable|string',
+        ]);
 
-    $pengajuan = PengajuanSkema::with(['user', 'program'])->findOrFail($id);
+        $pengajuan = PengajuanSkema::with(['user', 'program'])->findOrFail($id);
 
-    $pengajuan->update([
-        'status' => 'approved',
-        'tanggal_disetujui' => now(),
-        'catatan_admin' => $request->catatan_admin,
-        'approved_by' => Auth::id(),
-    ]);
+        $pengajuan->update([
+            'status' => 'approved',
+            'tanggal_disetujui' => now(),
+            'catatan_admin' => $request->catatan_admin,
+            'approved_by' => Auth::id(),
+        ]);
 
-    // Buat record pembayaran (tanpa snap token dulu, nanti generate saat user buka halaman bayar)
-    \App\Models\Pembayaran::create([
-        'pengajuan_skema_id' => $pengajuan->id,
-        'user_id' => $pengajuan->user_id,
-        'order_id' => \App\Models\Pembayaran::generateOrderId(),
-        'nominal' => $pengajuan->program->estimasi_biaya ?? 500000,
-        'status' => 'pending',
-        'expired_at' => now()->addDays(7), // 7 hari untuk bayar
-    ]);
+        // Buat record pembayaran (tanpa snap token dulu, nanti generate saat user buka halaman bayar)
+        \App\Models\Pembayaran::create([
+            'pengajuan_skema_id' => $pengajuan->id,
+            'user_id' => $pengajuan->user_id,
+            'order_id' => \App\Models\Pembayaran::generateOrderId(),
+            'nominal' => $pengajuan->program->estimasi_biaya ?? 500000,
+            'status' => 'pending',
+            'expired_at' => now()->addDays(7), // 7 hari untuk bayar
+        ]);
 
-    // Kirim notifikasi ke user
-    \App\Services\NotificationService::sendPengajuanApproved($pengajuan->user, $pengajuan);
+        // Kirim notifikasi ke user
+        \App\Services\NotificationService::sendPengajuanApproved($pengajuan->user, $pengajuan);
 
-    return redirect()->route('admin.pengajuan.show', $id)
-        ->with('success', 'Pengajuan berhasil disetujui.  User dapat melakukan pembayaran.');
-}
+        return redirect()->route('admin.pengajuan.show', $id)
+            ->with('success', 'Pengajuan berhasil disetujui.  User dapat melakukan pembayaran.');
+    }
 
     public function reject($id, Request $request)
     {
         $request->validate([
-            'catatan_admin' => 'required|string'
+            'catatan_admin' => 'required|string',
         ], [
-            'catatan_admin.required' => 'Catatan admin wajib diisi untuk penolakan.'
+            'catatan_admin.required' => 'Catatan admin wajib diisi untuk penolakan.',
         ]);
 
         $pengajuan = PengajuanSkema::with(['user', 'program'])->findOrFail($id);
@@ -133,27 +132,25 @@ class PengajuanController extends Controller
     }
 
     public function assignAsesor(Request $request, $pengajuanId)
-{
-    $request->validate([
-        'asesor_id' => 'required|exists:users,id'
-    ]);
+    {
+        $request->validate([
+            'asesor_id' => 'required|exists:users,id',
+        ]);
 
-    // Hapus dulu kalau sebelumnya sudah ada (biar 1 asesor saja)
-    DB::table('pengajuan_asesor')
-        ->where('pengajuan_skema_id', $pengajuanId)
-        ->delete();
+        // Hapus dulu kalau sebelumnya sudah ada (biar 1 asesor saja)
+        DB::table('pengajuan_asesor')
+            ->where('pengajuan_skema_id', $pengajuanId)
+            ->delete();
 
-    // Insert baru
-    DB::table('pengajuan_asesor')->insert([
-        'pengajuan_skema_id' => $pengajuanId,
-        'asesor_id' => $request->asesor_id,
-        'role' => 'utama',
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
+        // Insert baru
+        DB::table('pengajuan_asesor')->insert([
+            'pengajuan_skema_id' => $pengajuanId,
+            'asesor_id' => $request->asesor_id,
+            'role' => 'utama',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
-    return back()->with('success', 'Asesor berhasil ditugaskan');
-}
-
-
+        return back()->with('success', 'Asesor berhasil ditugaskan');
+    }
 }
