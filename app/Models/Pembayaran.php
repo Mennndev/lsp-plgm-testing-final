@@ -28,7 +28,7 @@ class Pembayaran extends Model
     ];
 
     protected $casts = [
-        'nominal' => 'decimal: 2',
+        'nominal' => 'decimal:2',
         'payment_details' => 'array',
         'paid_at' => 'datetime',
         'expired_at' => 'datetime',
@@ -94,5 +94,5 @@ class Pembayaran extends Model
     {
         return in_array($this->status, ['pending', 'failed', 'expired']);
     }
-   
+
 }

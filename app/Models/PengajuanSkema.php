@@ -41,7 +41,7 @@ class PengajuanSkema extends Model
 
     public function apl01(): HasOne
     {
-        return $this->hasOne(PengajuanApl01::class);
+        return $this->hasOne(PengajuanApl01::class, 'pengajuan_skema_id');
     }
 
     public function apl02(): HasMany
