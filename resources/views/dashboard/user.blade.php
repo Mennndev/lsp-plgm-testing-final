@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="{{ asset('css/dashboard-user.css') }}">
 </head>
 <body>
-<div id="wrapper" class="toggled">
+<div id="wrapper">
     {{-- SIDEBAR --}}
     <div id="sidebar-wrapper">
         <div class="sidebar-brand">
@@ -104,7 +104,7 @@
                                     </a>
                                 @empty
                                     <div class="text-center py-4 text-muted">
-                                        <i class="fa fa-bell-slash-o fs-3 mb-2 d-block"></i>
+                                        <i class="bi bi-bell-slash fs-3 mb-2 d-block"></i>
                                         <p class="mb-0">Tidak ada notifikasi</p>
                                     </div>
                                 @endforelse
@@ -172,19 +172,18 @@
                     </div>
                 </div>
 
-                {{-- Filter (belum pakai DB, nanti bisa dihubungkan) --}}
                 <div class="row filter-row">
                     <div class="col-md-4">
-                        <input type="text" class="form-control"
+                        <input type="text" class="form-control" id="asesmenSearch"
                                placeholder="Cari asesmen">
                     </div>
                     <div class="col-md-4">
-                        <select class="form-control">
-                            <option>Status asesmen</option>
-                            <option>Semua Status</option>
-                            <option>Menunggu</option>
+                        <select class="form-control" id="asesmenStatusFilter">
+                            <option value="">Semua Status</option>
+                            <option>Terjadwal</option>
                             <option>Selesai</option>
-                            <option>Belum Dimulai</option>
+                            <option>Ditunda</option>
+                            <option>Dibatalkan</option>
                         </select>
                     </div>
                 </div>
@@ -207,10 +206,10 @@
                             <th>Aksi</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="asesmenTableBody">
                         @forelse($asesmenList as $asesmen)
-                            {{-- TODO: sesuaikan field di bawah dengan kolom tabel asesmen kamu --}}
-                            <tr>
+                            <tr data-search="{{ \Illuminate\Support\Str::lower(($asesmen->kode ?? '') . ' ' . ($asesmen->skema_nama ?? '') . ' ' . ($asesmen->tuk_nama ?? '') . ' ' . ($asesmen->asesor_nama ?? '')) }}"
+                                data-status="{{ $asesmen->status_asesmen ?? '' }}">
                                 <td>{{ $asesmen->kode ?? '-' }}</td>
                                 <td>{{ $asesmen->skema_nama ?? '-' }}</td>
                                 <td>{{ $asesmen->tuk_nama ?? '-' }}</td>
@@ -229,10 +228,9 @@
                                 <td>{{ $asesmen->status ?? '-' }}</td>
                                 <td>{{ $asesmen->status_asesmen ?? '-' }}</td>
                                 <td>
-                                    {{-- contoh tombol detail --}}
                                     <a href="{{ route('pengajuan.show', $asesmen->pengajuan_id) }}" class="btn btn-xs btn-primary btn-custom">
-                                    Detail
-                                </a>
+                                        Detail
+                                    </a>
                                 </td>
                             </tr>
                         @empty
@@ -303,18 +301,13 @@
                 </div>
             </div>
 
-            {{-- RIWAYAT ASESMENT --}}
+            {{-- RIWAYAT ASESMEN --}}
             <div id="riwayat" class="content-section">
                 <div class="page-header page-header-riwayat">
-                    <div class="pull-left">
+                    <div>
                         <h1><i class="fa fa-history"></i> Riwayat Asesmen</h1>
+                        <p>Sertifikat yang sudah diterbitkan oleh admin.</p>
                     </div>
-                    <div class="pull-right">
-                        <button class="btn btn-page-header">
-                            <i class="fa fa-ellipsis-v"></i> Aksi
-                        </button>
-                    </div>
-                    <div class="clearfix"></div>
                 </div>
 
                 {{-- Search --}}
@@ -322,12 +315,11 @@
                     <div class="col-md-5">
                         <div class="input-group">
                             <input type="text" class="form-control"
+                                   id="riwayatSearch"
                                    placeholder="Cari skema sertifikasi">
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="button">
-                                    <i class="fa fa-search" style="color:#999;"></i>
-                                </button>
-                            </span>
+                            <button class="btn btn-outline-secondary" type="button" id="riwayatSearchButton">
+                                <i class="fa fa-search"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -344,9 +336,9 @@
                             <th>Aksi</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="riwayatTableBody">
                         @forelse($riwayatList as $riwayat)
-                        <tr>
+                        <tr data-search="{{ \Illuminate\Support\Str::lower(($riwayat->nama_skema ?? '') . ' ' . ($riwayat->jenis_bukti ?? '') . ' ' . ($riwayat->nomor_sertifikat ?? '') . ' ' . ($riwayat->status ?? '')) }}">
                             <td>{{ $riwayat->nama_skema ?? '-' }}</td>
                             <td>{{ $riwayat->jenis_bukti ?? '-' }}</td>
                             <td>{{ $riwayat->nomor_sertifikat ?? '-' }}</td>
@@ -366,17 +358,12 @@
                         <tr>
                             <td colspan="6" class="text-center empty-table">
                                 <i class="fa fa-inbox empty-icon"></i>
-                                <p>Tidak ada data</p>
+                                <p>Belum ada sertifikat yang diterbitkan.</p>
                             </td>
                         </tr>
                     @endforelse
                         </tbody>
                     </table>
-                </div>
-
-                {{-- Dummy scrollbar dekoratif --}}
-                <div class="fake-scrollbar-wrapper">
-                    <div class="fake-scrollbar"></div>
                 </div>
             </div>
         </div>
@@ -411,6 +398,10 @@
         // Menu link active state
         const menuLinks = document.querySelectorAll('.menu-link');
         const contentSections = document.querySelectorAll('.content-section');
+        const asesmenSearch = document.getElementById('asesmenSearch');
+        const asesmenStatusFilter = document.getElementById('asesmenStatusFilter');
+        const riwayatSearch = document.getElementById('riwayatSearch');
+        const riwayatSearchButton = document.getElementById('riwayatSearchButton');
 
         menuLinks.forEach(function(link) {
             link.addEventListener('click', function(e) {
@@ -423,7 +414,7 @@
 
                 // Show/hide content sections
                 contentSections.forEach(function(section) {
-                    section.style.display = section.id === target ? 'block' : 'none';
+                    section.classList.toggle('active', section.id === target);
                 });
 
                 // Close sidebar on mobile
@@ -432,6 +423,77 @@
                 }
             });
         });
+
+        function updateEmptyFilterRow(tbody, colspan, visibleCount, message) {
+            let filterEmptyRow = tbody.querySelector('[data-filter-empty]');
+
+            if (!filterEmptyRow) {
+                filterEmptyRow = document.createElement('tr');
+                filterEmptyRow.setAttribute('data-filter-empty', 'true');
+                filterEmptyRow.innerHTML = `<td colspan="${colspan}" class="text-center empty-table"><i class="fa fa-search empty-icon"></i><p>${message}</p></td>`;
+                tbody.appendChild(filterEmptyRow);
+            }
+
+            filterEmptyRow.style.display = visibleCount === 0 ? '' : 'none';
+        }
+
+        function filterAsesmenTable() {
+            const tbody = document.getElementById('asesmenTableBody');
+
+            if (!tbody) {
+                return;
+            }
+
+            const rows = tbody.querySelectorAll('tr[data-search]');
+            const searchValue = (asesmenSearch?.value || '').trim().toLowerCase();
+            const statusValue = asesmenStatusFilter?.value || '';
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const matchesSearch = !searchValue || row.dataset.search.includes(searchValue);
+                const matchesStatus = !statusValue || row.dataset.status === statusValue;
+                const isVisible = matchesSearch && matchesStatus;
+
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) {
+                    visibleCount++;
+                }
+            });
+
+            if (rows.length > 0) {
+                updateEmptyFilterRow(tbody, 12, visibleCount, 'Tidak ada asesmen yang cocok dengan filter.');
+            }
+        }
+
+        function filterRiwayatTable() {
+            const tbody = document.getElementById('riwayatTableBody');
+
+            if (!tbody) {
+                return;
+            }
+
+            const rows = tbody.querySelectorAll('tr[data-search]');
+            const searchValue = (riwayatSearch?.value || '').trim().toLowerCase();
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const isVisible = !searchValue || row.dataset.search.includes(searchValue);
+
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) {
+                    visibleCount++;
+                }
+            });
+
+            if (rows.length > 0) {
+                updateEmptyFilterRow(tbody, 6, visibleCount, 'Tidak ada sertifikat yang cocok dengan pencarian.');
+            }
+        }
+
+        asesmenSearch?.addEventListener('input', filterAsesmenTable);
+        asesmenStatusFilter?.addEventListener('change', filterAsesmenTable);
+        riwayatSearch?.addEventListener('input', filterRiwayatTable);
+        riwayatSearchButton?.addEventListener('click', filterRiwayatTable);
 
         // Close sidebar when clicking outside (mobile)
         document.addEventListener('click', function(e) {
