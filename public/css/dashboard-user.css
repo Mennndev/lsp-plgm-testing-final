@@ -313,18 +313,6 @@ body {
     margin: 0;
 }
 
-/* FAKE SCROLLBAR */
-.fake-scrollbar-wrapper {
-    margin-top: 15px;
-    overflow-x: auto;
-}
-
-.fake-scrollbar {
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 10px;
-}
-
 /* RESPONSIVE */
 @media (max-width: 768px) {
     #sidebar-wrapper {
@@ -451,4 +439,3 @@ body {
 #chatWidget .chat-widget-button i {
     font-size: 24px;
 }
-

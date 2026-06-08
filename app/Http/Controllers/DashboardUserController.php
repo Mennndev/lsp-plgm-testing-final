@@ -23,7 +23,7 @@ class DashboardUserController extends Controller
             ->map(function ($jadwal) {
                 return (object) [
                     'pengajuan_id' => $jadwal->pengajuan_skema_id,
-                    'kode' => 'ASM-' . str_pad((string) $jadwal->id, 5, '0', STR_PAD_LEFT),
+                    'kode' => 'ASM-'.str_pad((string) $jadwal->id, 5, '0', STR_PAD_LEFT),
                     'skema_nama' => $jadwal->pengajuan->program->nama ?? '-',
                     'tuk_nama' => $jadwal->mode_asesmen === 'online' ? 'Online Meeting' : 'TUK',
                     'tuk_alamat' => $jadwal->lokasi ?? '-',
@@ -43,22 +43,25 @@ class DashboardUserController extends Controller
             ->latest('tanggal_pengajuan')
             ->get();
 
-       $riwayatList = Sertifikat::with(['pengajuan.program'])
-    ->where('user_id', $user->id)
-    ->latest('tanggal_terbit')
-    ->get()
-    ->map(function ($sertifikat) {
-        return (object) [
-            'nama_skema' => $sertifikat->pengajuan->program->nama ?? '-',
-            'jenis_bukti' => $sertifikat->jenis_bukti ?? 'Sertifikat Kompetensi',
-            'nomor_sertifikat' => $sertifikat->nomor_sertifikat ?? '-',
-            'tanggal_berlaku' => $sertifikat->tanggal_berlaku_sampai
-                ? $sertifikat->tanggal_berlaku_sampai->format('d/m/Y')
-                : '-',
-            'status' => $sertifikat->status_sertifikat,
-            'file_sertifikat' => $sertifikat->file_sertifikat,
-        ];
-    }); // data untuk tabel "Riwayat Asesmen"
+        $riwayatList = Sertifikat::with(['pengajuan.program'])
+            ->where('user_id', $user->id)
+            ->whereNotNull('nomor_sertifikat')
+            ->where('nomor_sertifikat', '!=', '')
+            ->whereNotNull('file_sertifikat')
+            ->latest('tanggal_terbit')
+            ->get()
+            ->map(function ($sertifikat) {
+                return (object) [
+                    'nama_skema' => $sertifikat->pengajuan->program->nama ?? '-',
+                    'jenis_bukti' => $sertifikat->jenis_bukti ?: '-',
+                    'nomor_sertifikat' => $sertifikat->nomor_sertifikat,
+                    'tanggal_berlaku' => $sertifikat->tanggal_berlaku_sampai
+                        ? $sertifikat->tanggal_berlaku_sampai->format('d/m/Y')
+                        : '-',
+                    'status' => $sertifikat->status_sertifikat,
+                    'file_sertifikat' => $sertifikat->file_sertifikat,
+                ];
+            });
 
         // Hitung notifikasi yang belum dibaca
         $notificationCount = $user->unreadNotificationCount();
@@ -75,5 +78,4 @@ class DashboardUserController extends Controller
             'latestNotifications'
         ));
     }
-
 }
