@@ -21,7 +21,7 @@
             <option value="">-- Pilih Asesor --</option>
             @foreach($listAsesor as $asesor)
                 <option value="{{ $asesor->id }}"
-                    {{ $pengajuan->asesor_id == $asesor->id ? 'selected' : '' }}>
+                    {{ ($assignedAsesorId ?? null) == $asesor->id ? 'selected' : '' }}>
                     {{ $asesor->nama ?? $asesor->name }} ({{ $asesor->email }})
                 </option>
             @endforeach
@@ -71,6 +71,11 @@
                             <i class="bi bi-file-earmark-pdf"></i> Lihat Sertifikat
                         </a>
                     @endif
+
+                    <a href="{{ route('admin.sertifikat.create', $pengajuan->id) }}"
+                       class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-pencil"></i> Edit Sertifikat
+                    </a>
                 </div>
             @else
                 <a href="{{ route('admin.sertifikat.create', $pengajuan->id) }}"
