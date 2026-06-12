@@ -545,7 +545,7 @@
                 <div class="container">
                     <!-- Breadcrumb -->
                     <div class="breadcrumb-nav">
-                        <a href="{{ route('home') }}">
+                        <a href="{{ route('dashboard.user') }}">
                             <i class="bi bi-house-door"></i>
                             <span>Kembali ke Dashboard</span>
                         </a>
