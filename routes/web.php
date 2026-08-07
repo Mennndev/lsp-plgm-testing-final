@@ -76,7 +76,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/pengajuan/{id}', [PengajuanSkemaController::class, 'destroy'])->name('pengajuan.destroy');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::match(['get', 'post'], '/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::get('/notifications/latest', [NotificationController::class, 'getLatest'])->name('notifications.latest');
@@ -84,7 +84,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pembayaran/{pengajuanId}', [PembayaranController::class, 'show'])->name('pembayaran.show');
     Route::post('/pembayaran/{pengajuanId}/process', [PembayaranController::class, 'process'])->name('pembayaran.process');
     Route::get('/pembayaran/{id}/finish', [PembayaranController::class, 'finish'])->name('pembayaran.finish');
-    Route::post('/pembayaran/{pengajuanId}/check-status', [PembayaranController::class, 'checkStatus'])->name('pembayaran.check-status');
+    Route::match(['get', 'post'], '/pembayaran/{pengajuanId}/check-status', [PembayaranController::class, 'checkStatus'])->name('pembayaran.check-status');
     Route::post('/pembayaran/{pengajuanId}/reset', [PembayaranController::class, 'reset'])->name('pembayaran.reset');
 
     Route::get('/livechat', [ChatController::class, 'index'])->name('chat.index');
