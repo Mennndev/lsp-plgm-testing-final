@@ -4,44 +4,56 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    // TAMPILKAN FORM LOGIN
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOGIN_DECAY_SECONDS = 60;
+
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    // PROSES LOGIN
     public function processLogin(Request $request)
     {
-        // Validasi input
         $credentials = $request->validate([
-            'email'    => ['required', 'email'],
+            'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        // Coba login
+        $throttleKey = Str::lower($credentials['email']).'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_LOGIN_ATTEMPTS)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "Terlalu banyak percobaan login. Silakan coba lagi dalam {$seconds} detik.",
+            ]);
+        }
+
         if (Auth::attempt($credentials)) {
+            RateLimiter::clear($throttleKey);
             $request->session()->regenerate();
 
-            $user = Auth::user(); // user yang baru login
+            $user = Auth::user();
 
-            // === LOGIKA REDIRECT BERDASARKAN ROLE ===
-            // ganti 'role' dengan nama kolom di tabel users kamu
             if ($user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             }
+
             if ($user->role === 'asesor') {
                 return redirect()->route('asesor.dashboard');
             }
 
-            // default: user biasa
             return redirect()->route('dashboard.user');
         }
 
-        // Kalau gagal login
+        RateLimiter::hit($throttleKey, self::LOGIN_DECAY_SECONDS);
+
         return back()
             ->withErrors([
                 'email' => 'Email atau password tidak sesuai.',
@@ -49,7 +61,6 @@ class AuthController extends Controller
             ->onlyInput('email');
     }
 
-    // LOGOUT
     public function logout(Request $request)
     {
         Auth::logout();
@@ -57,6 +68,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login'); // atau '/'
+        return redirect()->route('login');
     }
 }

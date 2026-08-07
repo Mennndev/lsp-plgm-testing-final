@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Asesor;
 
 use App\Http\Controllers\Controller;
-use App\Models\PengajuanSkema;
 use App\Models\PengajuanAsesorAssessment;
+use App\Models\PengajuanSkema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class PenilaianController extends Controller
 {
@@ -32,26 +33,38 @@ class PenilaianController extends Controller
 
     public function store(Request $request, $pengajuanId)
     {
-        $request->validate([
-            'nilai' => ['required', 'array'],
-            'nilai.*' => ['required', 'in:K,BK'],
-            'catatan' => ['nullable', 'array'],
-            'catatan.*' => ['nullable', 'string'],
-        ]);
-
         $pengajuan = PengajuanSkema::whereHas('asesors', function ($query) {
                 $query->where('users.id', Auth::id());
             })
+            ->with('program.units.elemenKompetensis.kriteriaUnjukKerja')
             ->findOrFail($pengajuanId);
 
+        $allowedKukIds = $pengajuan->program->units
+            ->flatMap->elemenKompetensis
+            ->flatMap->kriteriaUnjukKerja
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $request->validate([
+            'nilai' => ['required', 'array'],
+            'nilai.*' => ['required', Rule::in(['K', 'BK'])],
+            'catatan' => ['nullable', 'array'],
+            'catatan.*' => ['nullable', 'string', 'max:2000'],
+        ]);
+
         foreach ($request->nilai as $kukId => $nilai) {
+            if (! in_array((int) $kukId, $allowedKukIds, true)) {
+                abort(422, 'Kriteria unjuk kerja tidak termasuk dalam skema yang dinilai.');
+            }
+
             PengajuanAsesorAssessment::updateOrCreate(
                 [
                     'pengajuan_skema_id' => $pengajuan->id,
                     'kriteria_unjuk_kerja_id' => $kukId,
-                    'asesor_id' => Auth::id(),
                 ],
                 [
+                    'asesor_id' => Auth::id(),
                     'nilai' => $nilai,
                     'catatan' => $request->catatan[$kukId] ?? null,
                 ]
