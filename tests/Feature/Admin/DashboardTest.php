@@ -37,7 +37,8 @@ class DashboardTest extends TestCase
             'nama' => 'Test Program',
             'slug' => 'test-program',
             'kategori' => 'Test',
-            'is_published' => 1,
+            'kategori_slug' => 'test',
+            'is_published' => true,
         ]);
 
         $pengajuan = PengajuanSkema::create([
