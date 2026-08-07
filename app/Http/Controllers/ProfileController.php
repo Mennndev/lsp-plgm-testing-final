@@ -36,24 +36,22 @@ class ProfileController extends Controller
                 'no_hp' => $validated['no_hp'] ?? null,
             ]);
 
-            $pendaftaran = Pendaftaran::firstOrCreate(
+            Pendaftaran::updateOrCreate(
                 ['user_id' => $user->id],
-                ['email' => $user->email]
+                [
+                    'email' => $user->email,
+                    'tempat_lahir' => $validated['tempat_lahir'],
+                    'tanggal_lahir' => $validated['tanggal_lahir'],
+                    'jenis_kelamin' => $validated['jenis_kelamin'],
+                    'no_ktp' => $validated['no_ktp'],
+                    'alamat' => $validated['alamat'],
+                    'kota' => $validated['kota'],
+                    'provinsi' => $validated['provinsi'],
+                    'pendidikan' => $validated['pendidikan'],
+                    'pekerjaan' => $validated['pekerjaan'],
+                    'instansi' => $validated['instansi'] ?? null,
+                ]
             );
-
-            $pendaftaran->update([
-                'email' => $user->email,
-                'tempat_lahir' => $validated['tempat_lahir'],
-                'tanggal_lahir' => $validated['tanggal_lahir'],
-                'jenis_kelamin' => $validated['jenis_kelamin'],
-                'no_ktp' => $validated['no_ktp'],
-                'alamat' => $validated['alamat'],
-                'kota' => $validated['kota'],
-                'provinsi' => $validated['provinsi'],
-                'pendidikan' => $validated['pendidikan'],
-                'pekerjaan' => $validated['pekerjaan'],
-                'instansi' => $validated['instansi'] ?? null,
-            ]);
         });
 
         return redirect()->route('ProfileUser.edit')->with('status', 'profile-updated');
