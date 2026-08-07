@@ -93,4 +93,4 @@ jobs:
         run: php artisan migrate:fresh --force
 
       - name: Jalankan Laravel test
-        run: php artisan test --colors=always
+        run: php artisan test --colors=always --display-all-issues --fail-on-risky
