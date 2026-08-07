@@ -83,6 +83,9 @@ jobs:
       - name: Install dependency frontend
         run: npm ci
 
+      - name: Audit dependency frontend
+        run: npm audit --json || true
+
       - name: Build frontend
         run: npm run build
 
