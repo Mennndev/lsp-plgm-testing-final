@@ -64,6 +64,27 @@ class SidangReadinessTest extends TestCase
         ]);
     }
 
+    private function validPengajuanPayload(ProgramPelatihan $program, array $selfAssessment): array
+    {
+        return [
+            'program_pelatihan_id' => $program->id,
+            'nama_lengkap' => 'Peserta Demo Sidang',
+            'nik' => '3273010101010001',
+            'tempat_lahir' => 'Bandung',
+            'tanggal_lahir' => '2002-01-01',
+            'jenis_kelamin' => 'L',
+            'kebangsaan' => 'Indonesia',
+            'alamat_rumah' => 'Bandung',
+            'telepon_kantor' => '0221234567',
+            'hp' => '081234567890',
+            'email' => 'peserta.demo@example.com',
+            'pekerjaan' => 'Mahasiswa',
+            'self_assessment' => $selfAssessment,
+            'agree' => '1',
+            'ttd_digital' => 'data:image/png;base64,'.base64_encode('demo-signature'),
+        ];
+    }
+
     public function test_approving_same_application_twice_does_not_create_duplicate_payment(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -194,5 +215,48 @@ class SidangReadinessTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.pembayaran.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.pembayaran.show', $payment->id))->assertOk();
+    }
+
+    public function test_final_application_requires_all_kuk_from_selected_scheme(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $program = $this->createProgram();
+        $kukA = $this->createKuk($program, 'A');
+        $kukB = $this->createKuk($program, 'B');
+
+        $this->actingAs($user)
+            ->post(route('pengajuan.store'), $this->validPengajuanPayload($program, [
+                $kukA->id => 'K',
+            ]))
+            ->assertSessionHasErrors('self_assessment');
+
+        $this->assertDatabaseCount('pengajuan_skema', 0);
+
+        $this->actingAs($user)
+            ->post(route('pengajuan.store'), $this->validPengajuanPayload($program, [
+                $kukA->id => 'K',
+                $kukB->id => 'BK',
+            ]))
+            ->assertRedirect(route('dashboard.user'));
+
+        $this->assertDatabaseHas('pengajuan_apl01', [
+            'hp' => '081234567890',
+            'telepon_kantor' => '0221234567',
+        ]);
+    }
+
+    public function test_user_cannot_create_second_active_application_for_same_scheme(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $program = $this->createProgram();
+        $kuk = $this->createKuk($program, 'A');
+        $payload = $this->validPengajuanPayload($program, [$kuk->id => 'K']);
+
+        $this->actingAs($user)->post(route('pengajuan.store'), $payload)->assertRedirect(route('dashboard.user'));
+        $this->actingAs($user)->post(route('pengajuan.store'), $payload)->assertSessionHasErrors('program_pelatihan_id');
+
+        $this->assertSame(1, PengajuanSkema::where('user_id', $user->id)
+            ->where('program_pelatihan_id', $program->id)
+            ->count());
     }
 }

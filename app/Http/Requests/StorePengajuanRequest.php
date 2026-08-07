@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class StorePengajuanRequest extends FormRequest
@@ -70,6 +71,42 @@ class StorePengajuanRequest extends FormRequest
             'agree' => 'accepted',
             'ttd_digital' => ['required', 'string', 'regex:/^data:image\/(png|jpeg);base64,/i'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            if ($validator->errors()->has('program_pelatihan_id') || $validator->errors()->has('self_assessment')) {
+                return;
+            }
+
+            $programId = (int) $this->input('program_pelatihan_id');
+            $submittedKukIds = collect(array_keys($this->input('self_assessment', [])))
+                ->map(fn ($id) => (int) $id)
+                ->sort()
+                ->values();
+
+            $expectedKukIds = DB::table('kriteria_unjuk_kerja as kuk')
+                ->join('elemen_kompetensis as elemen', 'elemen.id', '=', 'kuk.elemen_kompetensi_id')
+                ->join('unit_kompetensis as unit', 'unit.id', '=', 'elemen.unit_kompetensi_id')
+                ->where('unit.program_pelatihan_id', $programId)
+                ->pluck('kuk.id')
+                ->map(fn ($id) => (int) $id)
+                ->sort()
+                ->values();
+
+            if ($expectedKukIds->isEmpty()) {
+                $validator->errors()->add('self_assessment', 'Skema belum memiliki KUK yang dapat dinilai.');
+                return;
+            }
+
+            if ($submittedKukIds->all() !== $expectedKukIds->all()) {
+                $validator->errors()->add(
+                    'self_assessment',
+                    'Seluruh KUK pada skema wajib diisi dan tidak boleh berasal dari skema lain.'
+                );
+            }
+        });
     }
 
     public function messages(): array
