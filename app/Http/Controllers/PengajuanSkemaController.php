@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePengajuanRequest;
 use App\Models\Pendaftaran;
 use App\Models\PengajuanApl01;
+use App\Models\PengajuanApl02;
 use App\Models\PengajuanBuktiAdministratif;
 use App\Models\PengajuanBuktiKompetensi;
 use App\Models\PengajuanBuktiPortofolio;
 use App\Models\PengajuanDokumen;
 use App\Models\PengajuanPersyaratanDasar;
 use App\Models\PengajuanPortofolio;
-use App\Models\PengajuanSelfAssessment;
 use App\Models\PengajuanSkema;
 use App\Models\ProgramPelatihan;
 use Illuminate\Http\Request;
@@ -40,7 +40,7 @@ class PengajuanSkemaController extends Controller
     public function create(Request $request, $programId)
     {
         $program = ProgramPelatihan::with([
-            'units.elemenKompetensis.kriteriaUnjukKerja',
+            'units',
             'persyaratanDasar',
             'buktiAdministratif',
             'buktiPortofolioTemplate',
@@ -56,10 +56,6 @@ class PengajuanSkemaController extends Controller
                 ->with('error', 'Anda sudah mengajukan skema ini dan pengajuan masih aktif.');
         }
 
-        // Data identitas saat pendaftaran akun disimpan pada tabel pendaftarans,
-        // sedangkan nama/email/no. HP berada pada tabel users. Gunakan data tersebut
-        // sebagai nilai awal APL-01 agar Asesi tidak perlu mengisi ulang data yang sama.
-        // Jangan menimpa old input jika halaman kembali akibat validasi gagal.
         if (! $request->session()->hasOldInput()) {
             $pendaftaran = Pendaftaran::where('user_id', Auth::id())
                 ->latest('id')
@@ -119,7 +115,7 @@ class PengajuanSkemaController extends Controller
                 'tanggal_pengajuan' => now('Asia/Jakarta'),
             ]);
 
-            $apl01 = PengajuanApl01::create([
+            PengajuanApl01::create([
                 'pengajuan_skema_id' => $pengajuan->id,
                 'nama_lengkap' => $request->nama_lengkap,
                 'nik' => $request->nik,
@@ -149,14 +145,40 @@ class PengajuanSkemaController extends Controller
                 'ttd' => $request->ttd_digital,
             ]);
 
-            foreach ($request->input('self_assessment', []) as $kukId => $status) {
-                PengajuanSelfAssessment::create([
+            // APL-02: satu baris per Unit Kompetensi.
+            // Nilai K/BK adalah asesmen mandiri Asesi, bukan keputusan akhir Asesor.
+            foreach ($request->input('unit_assessment', []) as $unitId => $assessment) {
+                PengajuanApl02::create([
                     'pengajuan_skema_id' => $pengajuan->id,
-                    'kriteria_unjuk_kerja_id' => $kukId,
-                    'nilai' => $status,
+                    'unit_kompetensi_id' => (int) $unitId,
+                    'self_assessment' => [
+                        'status' => $assessment['status'],
+                    ],
                 ]);
             }
 
+            // Bukti kompetensi per Unit memakai penyimpanan portfolio yang sudah
+            // memiliki relasi langsung ke unit_kompetensi_id.
+            foreach ($request->file('unit_evidence', []) as $unitId => $file) {
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = $file->store('pengajuan_bukti_unit', 'public');
+                $storedPaths[] = $path;
+
+                PengajuanPortofolio::create([
+                    'pengajuan_skema_id' => $pengajuan->id,
+                    'unit_kompetensi_id' => (int) $unitId,
+                    'nama_file' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'ukuran' => $file->getSize(),
+                    'tipe_file' => $file->getClientOriginalExtension(),
+                    'deskripsi' => 'Bukti Kompetensi APL-02',
+                ]);
+            }
+
+            // Kompatibilitas untuk input portfolio lama bila masih digunakan oleh halaman lain.
             if ($request->hasFile('portfolio')) {
                 foreach ($request->file('portfolio') as $unitId => $files) {
                     foreach ($files as $index => $file) {
@@ -238,6 +260,7 @@ class PengajuanSkemaController extends Controller
                 ])
             );
 
+            // Dukungan legacy untuk bukti berbasis KUK, bila ada form lama yang masih mengirimnya.
             $this->storeSingleFiles(
                 $request->file('bukti_kompetensi', []),
                 'pengajuan_bukti_kompetensi',
@@ -284,8 +307,15 @@ class PengajuanSkemaController extends Controller
 
     public function show($id)
     {
-        $pengajuan = PengajuanSkema::with(['program', 'apl01', 'apl02.unitKompetensi', 'dokumen', 'approver'])
-            ->findOrFail($id);
+        $pengajuan = PengajuanSkema::with([
+            'program',
+            'apl01',
+            'apl02.unitKompetensi',
+            'portfolio.unitKompetensi',
+            'dokumen',
+            'approver',
+            'pembayaran',
+        ])->findOrFail($id);
 
         if (Auth::user()->role !== 'admin' && $pengajuan->user_id !== Auth::id()) {
             abort(403, 'Anda tidak memiliki akses ke pengajuan ini.');
