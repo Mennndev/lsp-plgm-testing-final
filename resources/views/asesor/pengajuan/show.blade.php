@@ -3,14 +3,12 @@
 @section('title', 'Detail Pengajuan')
 
 @section('content')
-<!-- ✅ BREADCRUMB -->
 <div class="asesor-breadcrumb">
     <a href="{{ route('asesor.dashboard') }}"><i class="bi bi-house-door"></i> Dashboard</a>
     <span class="separator">›</span>
     <span>Detail Pengajuan</span>
 </div>
 
-<!-- ✅ CARD HEADER BRAND -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header-brand">
         <h5><i class="bi bi-file-earmark-text"></i> Detail Pengajuan Asesi</h5>
@@ -47,11 +45,75 @@
     </div>
 </div>
 
-<!-- ✅ SECTION SELF-ASSESSMENT -->
-@if($pengajuan->selfAssessments && $pengajuan->selfAssessments->count() > 0)
+@if($pengajuan->apl02 && $pengajuan->apl02->count() > 0)
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header" style="background: #f4f6fc; border-bottom: 2px solid #233C7E;">
-        <h6 class="mb-0" style="color: #233C7E;"><i class="bi bi-clipboard-check"></i> Self-Assessment Asesi</h6>
+        <h6 class="mb-0" style="color: #233C7E;">
+            <i class="bi bi-clipboard-check"></i> APL-02: Asesmen Mandiri Asesi
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2">
+            <small>
+                Nilai K/BK berikut merupakan <strong>asesmen mandiri Asesi</strong>, bukan keputusan akhir Asesor.
+            </small>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th width="6%">No</th>
+                        <th width="22%">Kode Unit</th>
+                        <th>Unit Kompetensi</th>
+                        <th width="17%" class="text-center">Penilaian Mandiri</th>
+                        <th width="22%">Bukti Kompetensi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($pengajuan->apl02 as $index => $apl02)
+                        @php
+                            $status = is_array($apl02->self_assessment)
+                                ? ($apl02->self_assessment['status'] ?? null)
+                                : $apl02->self_assessment;
+                            $buktiList = $buktiUnit->get($apl02->unit_kompetensi_id, collect());
+                        @endphp
+                        <tr>
+                            <td class="text-center">{{ $index + 1 }}</td>
+                            <td>{{ $apl02->unitKompetensi->kode_unit ?? '-' }}</td>
+                            <td>{{ $apl02->unitKompetensi->judul_unit ?? '-' }}</td>
+                            <td class="text-center">
+                                @if($status === 'K')
+                                    <span class="badge bg-success">K - Kompeten</span>
+                                @elseif($status === 'BK')
+                                    <span class="badge bg-warning text-dark">BK - Belum Kompeten</span>
+                                @else
+                                    <span class="badge bg-secondary">Belum Dinilai</span>
+                                @endif
+                            </td>
+                            <td>
+                                @forelse($buktiList as $bukti)
+                                    <a href="{{ asset('storage/' . $bukti->path) }}"
+                                       target="_blank"
+                                       class="btn btn-sm btn-outline-primary mb-1">
+                                        <i class="bi bi-file-earmark-arrow-down"></i>
+                                        {{ \Illuminate\Support\Str::limit($bukti->nama_file, 30) }}
+                                    </a>
+                                @empty
+                                    <span class="text-muted">Tidak ada bukti</span>
+                                @endforelse
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@elseif($pengajuan->selfAssessments && $pengajuan->selfAssessments->count() > 0)
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header" style="background: #f4f6fc; border-bottom: 2px solid #233C7E;">
+        <h6 class="mb-0" style="color: #233C7E;"><i class="bi bi-clipboard-check"></i> Self-Assessment Asesi (Data Lama)</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -71,8 +133,8 @@
                         <td>{{ $sa->kriteriaUnjukKerja->elemenKompetensi->nama_elemen ?? '-' }}</td>
                         <td>{{ $sa->kriteriaUnjukKerja->deskripsi ?? '-' }}</td>
                         <td>
-                            <span class="badge {{ $sa->nilai === 'k' ? 'bg-success' : 'bg-secondary' }}">
-                                {{ $sa->nilai === 'k' ? 'Kompeten' : 'Belum Kompeten' }}
+                            <span class="badge {{ strtoupper($sa->nilai) === 'K' ? 'bg-success' : 'bg-secondary' }}">
+                                {{ strtoupper($sa->nilai) === 'K' ? 'Kompeten' : 'Belum Kompeten' }}
                             </span>
                         </td>
                     </tr>
@@ -84,33 +146,6 @@
 </div>
 @endif
 
-<!-- ✅ SECTION BUKTI KOMPETENSI -->
-@if($pengajuan->buktiKompetensi && $pengajuan->buktiKompetensi->count() > 0)
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-header" style="background: #f4f6fc; border-bottom: 2px solid #233C7E;">
-        <h6 class="mb-0" style="color: #233C7E;"><i class="bi bi-folder2-open"></i> Bukti Kompetensi</h6>
-    </div>
-    <div class="card-body">
-        <div class="list-group">
-            @foreach($pengajuan->buktiKompetensi as $bukti)
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">{{ $bukti->nama_file }}</h6>
-                        <small class="text-muted">{{ $bukti->deskripsi ?? 'Tidak ada deskripsi' }}</small>
-                    </div>
-                    <a href="{{ asset('storage/' . $bukti->file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-download"></i> Unduh
-                    </a>
-                </div>
-            </div>
-            @endforeach
-        </div>
-    </div>
-</div>
-@endif
-
-<!-- ✅ TOMBOL AKSI -->
 <div class="d-flex gap-2">
     <a href="{{ route('asesor.pengajuan.penilaian', $pengajuan->id) }}" class="btn btn-asesor btn-primary-asesor">
         <i class="bi bi-clipboard-check"></i> Mulai Penilaian
