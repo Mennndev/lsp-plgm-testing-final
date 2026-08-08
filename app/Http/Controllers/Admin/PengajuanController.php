@@ -52,18 +52,44 @@ class PengajuanController extends Controller
     public function show($id)
     {
         $pengajuan = PengajuanSkema::with([
-            'user', 'program', 'apl01', 'buktiKompetensi.kuk.elemen.unit',
-            'pengajuanBuktiAdministratif', 'pengajuanBuktiPortofolio',
-            'pengajuanPersyaratanDasar', 'pembayaran', 'approver',
-            'jadwalAsesmen.asesor', 'sertifikat', 'asesors',
+            'user',
+            'program',
+            'apl01',
+            'apl02.unitKompetensi',
+            'portfolio.unitKompetensi',
+            'buktiKompetensi.kuk.elemen.unit',
+            'pengajuanBuktiAdministratif',
+            'pengajuanBuktiPortofolio',
+            'pengajuanPersyaratanDasar',
+            'pembayaran',
+            'approver',
+            'jadwalAsesmen.asesor',
+            'sertifikat',
+            'asesors',
         ])->findOrFail($id);
 
+        // Data baru APL-02 berbasis Unit Kompetensi.
+        $apl02Unit = $pengajuan->apl02;
+        $buktiUnit = $pengajuan->portfolio
+            ->where('deskripsi', 'Bukti Kompetensi APL-02')
+            ->groupBy('unit_kompetensi_id');
+
+        // Data legacy tetap disediakan untuk pengajuan lama berbasis KUK.
         $selfAssessments = $pengajuan->selfAssessments()->with('kuk.elemen.unit')->get();
         $buktiKompetensi = $pengajuan->buktiKompetensi;
+
         $listAsesor = User::where('role', 'asesor')->get();
         $assignedAsesorId = $pengajuan->asesors->first()?->id;
 
-        return view('admin.pengajuan.show', compact('pengajuan', 'selfAssessments', 'buktiKompetensi', 'listAsesor', 'assignedAsesorId'));
+        return view('admin.pengajuan.show', compact(
+            'pengajuan',
+            'apl02Unit',
+            'buktiUnit',
+            'selfAssessments',
+            'buktiKompetensi',
+            'listAsesor',
+            'assignedAsesorId'
+        ));
     }
 
     public function approve($id, Request $request)
