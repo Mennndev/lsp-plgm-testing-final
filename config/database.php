@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Str;
 
-$mysqlSslCaAttribute = class_exists(\Pdo\Mysql::class)
+$mysqlSslCaAttribute = PHP_VERSION_ID >= 80500
     ? \Pdo\Mysql::ATTR_SSL_CA
     : \PDO::MYSQL_ATTR_SSL_CA;
 
@@ -125,8 +125,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run on the database.
+    | the database. This information is used to determine which migrations on
+    | disk have not actually been run yet.
     |
     */
 
