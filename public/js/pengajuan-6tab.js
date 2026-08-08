@@ -9,6 +9,7 @@
     // Initialize on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
         initializeTabs();
+        initializeAssessmentPurpose();
         initializeSignature();
         initializeAutoSave();
         
@@ -18,6 +19,54 @@
             goToTab(savedTab);
         }
     });
+
+    /**
+     * Ganti pilihan Tujuan Asesmen lama (PKT/RPL/RCC/Lainnya)
+     * menjadi pilihan APL-01: Sertifikasi / Sertifikasi Ulang.
+     * Nama field tetap tujuan_asesmen[] agar kompatibel dengan kolom JSON lama.
+     */
+    function initializeAssessmentPurpose() {
+        const oldInputs = document.querySelectorAll('input[name="tujuan_asesmen[]"]');
+        if (!oldInputs.length) return;
+
+        const firstInput = oldInputs[0];
+        const container = firstInput.closest('.mb-3');
+        if (!container) return;
+
+        const previouslySelected = Array.from(oldInputs)
+            .find(input => input.checked)?.value || '';
+
+        const selectedValue = ['Sertifikasi', 'Sertifikasi Ulang'].includes(previouslySelected)
+            ? previouslySelected
+            : '';
+
+        container.innerHTML = `
+            <div class="form-check mb-2">
+                <input class="form-check-input"
+                       type="radio"
+                       name="tujuan_asesmen[]"
+                       value="Sertifikasi"
+                       id="tujuan_sertifikasi"
+                       required
+                       ${selectedValue === 'Sertifikasi' ? 'checked' : ''}>
+                <label class="form-check-label" for="tujuan_sertifikasi">
+                    Sertifikasi
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="radio"
+                       name="tujuan_asesmen[]"
+                       value="Sertifikasi Ulang"
+                       id="tujuan_sertifikasi_ulang"
+                       required
+                       ${selectedValue === 'Sertifikasi Ulang' ? 'checked' : ''}>
+                <label class="form-check-label" for="tujuan_sertifikasi_ulang">
+                    Sertifikasi Ulang
+                </label>
+            </div>
+        `;
+    }
 
     /**
      * Initialize tab navigation
@@ -115,6 +164,8 @@
                     if (checkedFields.length === 0 && field.hasAttribute('required')) {
                         isValid = false;
                         field.classList.add('is-invalid');
+                    } else {
+                        field.classList.remove('is-invalid');
                     }
                 }
             } else if (field.type === 'file') {
@@ -161,6 +212,11 @@
             } else if (field.type === 'checkbox') {
                 // For agreement checkbox
                 if (!field.checked && field.hasAttribute('required')) {
+                    isValid = false;
+                }
+            } else if (field.type === 'radio') {
+                const name = field.getAttribute('name');
+                if (name && !form.querySelector(`[name="${name}"]:checked`)) {
                     isValid = false;
                 }
             } else {
