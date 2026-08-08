@@ -46,9 +46,16 @@ Route::get('/skema-sertifikasi', [Skemacontroller::class, 'index'])->name('skema
 Route::get('/skema/{program:slug}', [Skemacontroller::class, 'show'])->name('skema.show');
 Route::get('/tempat-sertifikasi', fn () => view('tempat-sertifikasi'));
 
+// Endpoint utama webhook Midtrans.
 Route::post('/webhook/midtrans', [PembayaranController::class, 'notification'])
     ->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
     ->name('webhook.midtrans');
+
+// Alias untuk kompatibilitas dengan Notification URL yang sebelumnya sudah
+// dikonfigurasi di Dashboard Midtrans /midtrans/notification.
+Route::post('/midtrans/notification', [PembayaranController::class, 'notification'])
+    ->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+    ->name('midtrans.notification');
 
 Route::get('/password/forgot', [PasswordResetController::class, 'request'])->name('password.request');
 Route::post('/password/forgot', [PasswordResetController::class, 'email'])->name('password.email');
