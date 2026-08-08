@@ -19,7 +19,15 @@ class PembayaranController extends Controller
         }
 
         $pembayaranList = $query
-            ->orderByRaw("FIELD(status, 'processing', 'pending', 'success', 'failed', 'expired', 'refunded')")
+            ->orderByRaw("CASE status
+                WHEN 'processing' THEN 1
+                WHEN 'pending' THEN 2
+                WHEN 'success' THEN 3
+                WHEN 'failed' THEN 4
+                WHEN 'expired' THEN 5
+                WHEN 'refunded' THEN 6
+                ELSE 7
+            END")
             ->orderByDesc('updated_at')
             ->paginate(self::ITEMS_PER_PAGE)
             ->withQueryString();
