@@ -42,8 +42,10 @@ class StorePengajuanRequest extends FormRequest
             'nama_sertifikat' => 'nullable|string|max:255',
             'nomor_sertifikat' => 'nullable|string|max:255',
 
-            'tujuan_asesmen' => 'nullable|array',
-            'tujuan_asesmen.*' => Rule::in(['PKT', 'RPL', 'RCC', 'Lainnya']),
+            // APL-01: pemohon memilih tepat satu tujuan asesmen.
+            // Tetap disimpan sebagai array satu elemen agar kompatibel dengan kolom JSON/data lama.
+            'tujuan_asesmen' => 'required|array|size:1',
+            'tujuan_asesmen.*' => ['required', Rule::in(['Sertifikasi', 'Sertifikasi Ulang'])],
             'bukti_penyertaan_dasar' => 'nullable|string',
             'bukti_administrasif' => 'nullable|string',
             'catatan' => 'nullable|string',
@@ -123,6 +125,9 @@ class StorePengajuanRequest extends FormRequest
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'pekerjaan.required' => 'Pekerjaan wajib dipilih.',
+            'tujuan_asesmen.required' => 'Tujuan asesmen wajib dipilih.',
+            'tujuan_asesmen.size' => 'Pilih satu tujuan asesmen.',
+            'tujuan_asesmen.*.in' => 'Tujuan asesmen tidak valid.',
             'dokumen.*.mimes' => 'Format dokumen harus PDF, JPG, PNG, DOC, atau DOCX.',
             'dokumen.*.max' => 'Ukuran dokumen maksimal 2MB.',
             'self_assessment.required' => 'Self assessment wajib diisi.',
