@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StorePengajuanRequest;
+use App\Models\Pendaftaran;
 use App\Models\PengajuanApl01;
 use App\Models\PengajuanBuktiAdministratif;
 use App\Models\PengajuanBuktiKompetensi;
@@ -36,7 +37,7 @@ class PengajuanSkemaController extends Controller
         return view('pengajuan.pilih-skema', compact('programs', 'pengajuanUser'));
     }
 
-    public function create($programId)
+    public function create(Request $request, $programId)
     {
         $program = ProgramPelatihan::with([
             'units.elemenKompetensis.kriteriaUnjukKerja',
@@ -53,6 +54,41 @@ class PengajuanSkemaController extends Controller
         if ($existingPengajuan) {
             return redirect()->route('dashboard.user')
                 ->with('error', 'Anda sudah mengajukan skema ini dan pengajuan masih aktif.');
+        }
+
+        // Data identitas saat pendaftaran akun disimpan pada tabel pendaftarans,
+        // sedangkan nama/email/no. HP berada pada tabel users. Gunakan data tersebut
+        // sebagai nilai awal APL-01 agar Asesi tidak perlu mengisi ulang data yang sama.
+        // Jangan menimpa old input jika halaman kembali akibat validasi gagal.
+        if (! $request->session()->hasOldInput()) {
+            $pendaftaran = Pendaftaran::where('user_id', Auth::id())
+                ->latest('id')
+                ->first();
+
+            if ($pendaftaran) {
+                $jenisKelamin = match ($pendaftaran->jenis_kelamin) {
+                    'Laki-laki', 'L' => 'L',
+                    'Perempuan', 'P' => 'P',
+                    default => null,
+                };
+
+                $prefill = [
+                    'nik' => $pendaftaran->no_ktp,
+                    'tempat_lahir' => $pendaftaran->tempat_lahir,
+                    'tanggal_lahir' => $pendaftaran->tanggal_lahir?->format('Y-m-d'),
+                    'jenis_kelamin' => $jenisKelamin,
+                    'alamat_rumah' => $pendaftaran->alamat,
+                    'kualifikasi_pendidikan' => $pendaftaran->pendidikan,
+                    'pekerjaan' => $pendaftaran->pekerjaan,
+                    'nama_institusi' => $pendaftaran->instansi,
+                ];
+
+                $request->session()->flashInput(
+                    collect($prefill)
+                        ->filter(fn ($value) => $value !== null && $value !== '')
+                        ->all()
+                );
+            }
         }
 
         return view('pengajuan.create-6tab', compact('program'));
