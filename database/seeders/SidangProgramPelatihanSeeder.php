@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\BuktiAdministratif;
+use App\Models\BuktiPortofolioTemplate;
+use App\Models\PersyaratanDasar;
 use App\Models\ProgramPelatihan;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -9,10 +12,10 @@ use Illuminate\Support\Str;
 class SidangProgramPelatihanSeeder extends Seeder
 {
     /**
-     * Seed program pelatihan dan unit kompetensi untuk kebutuhan demo/sidang.
+     * Seed skema, unit kompetensi, dan persyaratan untuk kebutuhan demo/sidang.
      *
-     * Sumber data unit berasal dari daftar skema yang diberikan pengguna.
-     * Elemen kompetensi dan KUK tidak dibuat karena tidak tersedia pada sumber.
+     * Elemen kompetensi dan KUK tidak dibuat karena tidak tersedia pada sumber
+     * daftar skema yang diberikan pengguna.
      */
     public function run(): void
     {
@@ -32,6 +35,20 @@ class SidangProgramPelatihanSeeder extends Seeder
                     ['J.630PR00.006.2', 'Menggunakan Perangkat Lunak Presentasi Tingkat Dasar'],
                     ['J.630PR00.008.2', 'Menggunakan Perangkat Lunak Pengakses Surat Elektronik (Email Client)'],
                     ['J.630PR00.009.2', 'Menggunakan Aplikasi Berbasis Internet'],
+                ],
+                'persyaratan_dasar' => [
+                    ['Ijazah minimal SMA/SMK atau Surat Keterangan Mahasiswa', true],
+                    ['Sertifikat Pelatihan atau Surat Pengalaman Kerja terkait (jika ada)', false],
+                ],
+                'bukti_administratif' => [
+                    ['KTP / Kartu Identitas', true],
+                    ['Pas Foto', true],
+                    ['Curriculum Vitae (CV)', true],
+                ],
+                'bukti_portofolio' => [
+                    ['Contoh Dokumen Pengolah Kata', true],
+                    ['Contoh Dokumen Spreadsheet', true],
+                    ['Contoh File Presentasi', false],
                 ],
             ],
             [
@@ -54,6 +71,20 @@ class SidangProgramPelatihanSeeder extends Seeder
                     ['N.821100.063.02', 'Memutakhirkan Informasi pada Homepage Perusahaan'],
                     ['N.821100.064.02', 'Mengoperasikan Sistem Informasi'],
                 ],
+                'persyaratan_dasar' => [
+                    ['Ijazah minimal SMA/SMK atau Surat Keterangan Mahasiswa', true],
+                    ['Sertifikat Pelatihan atau Surat Pengalaman Kerja terkait (jika ada)', false],
+                ],
+                'bukti_administratif' => [
+                    ['KTP / Kartu Identitas', true],
+                    ['Pas Foto', true],
+                    ['Curriculum Vitae (CV)', true],
+                ],
+                'bukti_portofolio' => [
+                    ['Contoh Surat atau Dokumen Elektronik', true],
+                    ['Contoh Dokumen Administrasi Perkantoran', true],
+                    ['Contoh Pengolahan Data / Database Sederhana', false],
+                ],
             ],
             [
                 'kode_skema' => 'SK-DM-2013',
@@ -73,12 +104,35 @@ class SidangProgramPelatihanSeeder extends Seeder
                     ['M.702090.006.01', 'Menyusun Rencana Aktifitas Penjualan'],
                     ['M.702090.005.01', 'Melaksanakan Keterampilan Penjualan'],
                 ],
+                'persyaratan_dasar' => [
+                    ['Ijazah minimal SMA/SMK atau Surat Keterangan Mahasiswa', true],
+                    ['Sertifikat Pelatihan atau Surat Pengalaman Kerja terkait (jika ada)', false],
+                ],
+                'bukti_administratif' => [
+                    ['KTP / Kartu Identitas', true],
+                    ['Pas Foto', true],
+                    ['Curriculum Vitae (CV)', true],
+                ],
+                'bukti_portofolio' => [
+                    ['Contoh Konten Media Sosial', true],
+                    ['Contoh Desain / Materi Promosi', true],
+                    ['Contoh Rencana atau Strategi Pemasaran', false],
+                ],
             ],
         ];
 
         foreach ($programs as $programData) {
             $units = $programData['units'];
-            unset($programData['units']);
+            $persyaratanDasar = $programData['persyaratan_dasar'];
+            $buktiAdministratif = $programData['bukti_administratif'];
+            $buktiPortofolio = $programData['bukti_portofolio'];
+
+            unset(
+                $programData['units'],
+                $programData['persyaratan_dasar'],
+                $programData['bukti_administratif'],
+                $programData['bukti_portofolio']
+            );
 
             $program = ProgramPelatihan::updateOrCreate(
                 ['kode_skema' => $programData['kode_skema']],
@@ -96,6 +150,47 @@ class SidangProgramPelatihanSeeder extends Seeder
                     [
                         'kode_unit' => $kodeUnit,
                         'judul_unit' => $judulUnit,
+                    ]
+                );
+            }
+
+            foreach ($persyaratanDasar as $index => [$namaDokumen, $isWajib]) {
+                PersyaratanDasar::updateOrCreate(
+                    [
+                        'program_pelatihan_id' => $program->id,
+                        'urutan' => $index + 1,
+                    ],
+                    [
+                        'nama_dokumen' => $namaDokumen,
+                        'tipe_dokumen' => 'file_upload',
+                        'is_wajib' => $isWajib,
+                    ]
+                );
+            }
+
+            foreach ($buktiAdministratif as $index => [$namaDokumen, $isWajib]) {
+                BuktiAdministratif::updateOrCreate(
+                    [
+                        'program_pelatihan_id' => $program->id,
+                        'urutan' => $index + 1,
+                    ],
+                    [
+                        'nama_dokumen' => $namaDokumen,
+                        'tipe_dokumen' => 'file_upload',
+                        'is_wajib' => $isWajib,
+                    ]
+                );
+            }
+
+            foreach ($buktiPortofolio as $index => [$namaDokumen, $isWajib]) {
+                BuktiPortofolioTemplate::updateOrCreate(
+                    [
+                        'program_pelatihan_id' => $program->id,
+                        'urutan' => $index + 1,
+                    ],
+                    [
+                        'nama_dokumen' => $namaDokumen,
+                        'is_wajib' => $isWajib,
                     ]
                 );
             }
