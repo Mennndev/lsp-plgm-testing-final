@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 
 class PembayaranController extends Controller
 {
+    private const DEFAULT_PAYMENT_AMOUNT = 500000;
+
     protected MidtransService $midtransService;
 
     public function __construct(MidtransService $midtransService)
@@ -30,9 +32,17 @@ class PembayaranController extends Controller
         }
 
         $pembayaran = $pengajuan->pembayaran;
+        $programNominal = $pengajuan->program?->estimasi_biaya;
 
-        if ($pembayaran && $pengajuan->program && $pembayaran->nominal != $pengajuan->program->estimasi_biaya) {
-            $pembayaran->update(['nominal' => $pengajuan->program->estimasi_biaya]);
+        // Jangan pernah menimpa nominal pembayaran menjadi NULL ketika skema
+        // belum memiliki estimasi biaya. Nominal yang dibuat saat approval
+        // tetap menjadi sumber nilai pembayaran sampai biaya skema diisi.
+        if (
+            $pembayaran
+            && $programNominal !== null
+            && (float) $pembayaran->nominal !== (float) $programNominal
+        ) {
+            $pembayaran->update(['nominal' => $programNominal]);
         }
 
         if ($pembayaran && $pembayaran->status === 'success') {
@@ -89,7 +99,7 @@ class PembayaranController extends Controller
                 'pengajuan_skema_id' => $pengajuan->id,
                 'user_id' => Auth::id(),
                 'order_id' => Pembayaran::generateOrderId(),
-                'nominal' => $pengajuan->program->estimasi_biaya ?? 500000,
+                'nominal' => $pengajuan->program?->estimasi_biaya ?? self::DEFAULT_PAYMENT_AMOUNT,
                 'status' => 'pending',
             ]);
         }
