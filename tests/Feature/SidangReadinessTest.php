@@ -42,14 +42,19 @@ class SidangReadinessTest extends TestCase
         ]);
     }
 
-    private function createKuk(ProgramPelatihan $program, string $suffix): KriteriaUnjukKerja
+    private function createUnit(ProgramPelatihan $program, string $suffix): UnitKompetensi
     {
-        $unit = UnitKompetensi::create([
+        return UnitKompetensi::create([
             'program_pelatihan_id' => $program->id,
-            'no_urut' => 1,
+            'no_urut' => $program->units()->count() + 1,
             'kode_unit' => 'UNIT-'.$suffix.'-'.uniqid(),
             'judul_unit' => 'Unit '.$suffix,
         ]);
+    }
+
+    private function createKuk(ProgramPelatihan $program, string $suffix): KriteriaUnjukKerja
+    {
+        $unit = $this->createUnit($program, $suffix);
 
         $elemen = ElemenKompetensi::create([
             'unit_kompetensi_id' => $unit->id,
@@ -64,7 +69,7 @@ class SidangReadinessTest extends TestCase
         ]);
     }
 
-    private function validPengajuanPayload(ProgramPelatihan $program, array $selfAssessment): array
+    private function validPengajuanPayload(ProgramPelatihan $program, array $unitAssessment): array
     {
         return [
             'program_pelatihan_id' => $program->id,
@@ -78,8 +83,9 @@ class SidangReadinessTest extends TestCase
             'telepon_kantor' => '0221234567',
             'hp' => '081234567890',
             'email' => 'peserta.demo@example.com',
-            'pekerjaan' => 'Mahasiswa',
-            'self_assessment' => $selfAssessment,
+            'pekerjaan' => 'Pelajar/Mahasiswa',
+            'tujuan_asesmen' => ['Sertifikasi'],
+            'unit_assessment' => $unitAssessment,
             'agree' => '1',
             'ttd_digital' => 'data:image/png;base64,'.base64_encode('demo-signature'),
         ];
@@ -217,25 +223,25 @@ class SidangReadinessTest extends TestCase
         $this->actingAs($admin)->get(route('admin.pembayaran.show', $payment->id))->assertOk();
     }
 
-    public function test_final_application_requires_all_kuk_from_selected_scheme(): void
+    public function test_final_application_requires_all_units_from_selected_scheme(): void
     {
         $user = User::factory()->create(['role' => 'user']);
         $program = $this->createProgram();
-        $kukA = $this->createKuk($program, 'A');
-        $kukB = $this->createKuk($program, 'B');
+        $unitA = $this->createUnit($program, 'A');
+        $unitB = $this->createUnit($program, 'B');
 
         $this->actingAs($user)
             ->post(route('pengajuan.store'), $this->validPengajuanPayload($program, [
-                $kukA->id => 'K',
+                ['kode_unit' => $unitA->kode_unit, 'status' => 'K'],
             ]))
-            ->assertSessionHasErrors('self_assessment');
+            ->assertSessionHasErrors('unit_assessment');
 
         $this->assertDatabaseCount('pengajuan_skema', 0);
 
         $this->actingAs($user)
             ->post(route('pengajuan.store'), $this->validPengajuanPayload($program, [
-                $kukA->id => 'K',
-                $kukB->id => 'BK',
+                ['kode_unit' => $unitA->kode_unit, 'status' => 'K'],
+                ['kode_unit' => $unitB->kode_unit, 'status' => 'BK'],
             ]))
             ->assertRedirect(route('dashboard.user'));
 
@@ -243,14 +249,17 @@ class SidangReadinessTest extends TestCase
             'hp' => '081234567890',
             'telepon_kantor' => '0221234567',
         ]);
+        $this->assertDatabaseCount('pengajuan_apl02', 2);
     }
 
     public function test_user_cannot_create_second_active_application_for_same_scheme(): void
     {
         $user = User::factory()->create(['role' => 'user']);
         $program = $this->createProgram();
-        $kuk = $this->createKuk($program, 'A');
-        $payload = $this->validPengajuanPayload($program, [$kuk->id => 'K']);
+        $unit = $this->createUnit($program, 'A');
+        $payload = $this->validPengajuanPayload($program, [
+            ['kode_unit' => $unit->kode_unit, 'status' => 'K'],
+        ]);
 
         $this->actingAs($user)->post(route('pengajuan.store'), $payload)->assertRedirect(route('dashboard.user'));
         $this->actingAs($user)->post(route('pengajuan.store'), $payload)->assertSessionHasErrors('program_pelatihan_id');
