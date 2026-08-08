@@ -96,8 +96,10 @@ class PengajuanSkemaController extends Controller
         DB::beginTransaction();
 
         try {
+            $programId = $request->integer('program_pelatihan_id');
+
             $alreadyExists = PengajuanSkema::where('user_id', Auth::id())
-                ->where('program_pelatihan_id', $request->integer('program_pelatihan_id'))
+                ->where('program_pelatihan_id', $programId)
                 ->whereIn('status', ['pending', 'approved', 'paid'])
                 ->lockForUpdate()
                 ->exists();
@@ -108,9 +110,14 @@ class PengajuanSkemaController extends Controller
                 ]);
             }
 
+            $unitByCode = DB::table('unit_kompetensis')
+                ->where('program_pelatihan_id', $programId)
+                ->get(['id', 'kode_unit'])
+                ->keyBy('kode_unit');
+
             $pengajuan = PengajuanSkema::create([
                 'user_id' => Auth::id(),
-                'program_pelatihan_id' => $request->integer('program_pelatihan_id'),
+                'program_pelatihan_id' => $programId,
                 'status' => 'pending',
                 'tanggal_pengajuan' => now('Asia/Jakarta'),
             ]);
@@ -146,21 +153,36 @@ class PengajuanSkemaController extends Controller
             ]);
 
             // APL-02: satu baris per Unit Kompetensi.
-            // Nilai K/BK adalah asesmen mandiri Asesi, bukan keputusan akhir Asesor.
-            foreach ($request->input('unit_assessment', []) as $unitId => $assessment) {
+            // K/BK merupakan asesmen mandiri Asesi, bukan keputusan akhir Asesor.
+            foreach ($request->input('unit_assessment', []) as $index => $assessment) {
+                $unit = $unitByCode->get($assessment['kode_unit']);
+
+                if (! $unit) {
+                    throw ValidationException::withMessages([
+                        "unit_assessment.{$index}.kode_unit" => 'Unit Kompetensi tidak valid untuk skema yang dipilih.',
+                    ]);
+                }
+
                 PengajuanApl02::create([
                     'pengajuan_skema_id' => $pengajuan->id,
-                    'unit_kompetensi_id' => (int) $unitId,
+                    'unit_kompetensi_id' => $unit->id,
                     'self_assessment' => [
                         'status' => $assessment['status'],
                     ],
                 ]);
             }
 
-            // Bukti kompetensi per Unit memakai penyimpanan portfolio yang sudah
-            // memiliki relasi langsung ke unit_kompetensi_id.
-            foreach ($request->file('unit_evidence', []) as $unitId => $file) {
+            // Bukti kompetensi per unit memakai tabel portfolio yang sudah mempunyai
+            // unit_kompetensi_id, sehingga tidak membutuhkan perubahan database.
+            foreach ($request->file('unit_evidence', []) as $index => $file) {
                 if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $kodeUnit = $request->input("unit_assessment.{$index}.kode_unit");
+                $unit = $unitByCode->get($kodeUnit);
+
+                if (! $unit) {
                     continue;
                 }
 
@@ -169,7 +191,7 @@ class PengajuanSkemaController extends Controller
 
                 PengajuanPortofolio::create([
                     'pengajuan_skema_id' => $pengajuan->id,
-                    'unit_kompetensi_id' => (int) $unitId,
+                    'unit_kompetensi_id' => $unit->id,
                     'nama_file' => $file->getClientOriginalName(),
                     'path' => $path,
                     'ukuran' => $file->getSize(),
@@ -178,7 +200,6 @@ class PengajuanSkemaController extends Controller
                 ]);
             }
 
-            // Kompatibilitas untuk input portfolio lama bila masih digunakan oleh halaman lain.
             if ($request->hasFile('portfolio')) {
                 foreach ($request->file('portfolio') as $unitId => $files) {
                     foreach ($files as $index => $file) {
@@ -260,7 +281,7 @@ class PengajuanSkemaController extends Controller
                 ])
             );
 
-            // Dukungan legacy untuk bukti berbasis KUK, bila ada form lama yang masih mengirimnya.
+            // Dukungan legacy untuk form lama yang masih mengirim bukti berbasis KUK.
             $this->storeSingleFiles(
                 $request->file('bukti_kompetensi', []),
                 'pengajuan_bukti_kompetensi',
