@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Asesor;
 
 use App\Http\Controllers\Controller;
 use App\Models\PengajuanAsesorAssessment;
+use App\Models\PengajuanAsesorUnitAssessment;
 use App\Models\PengajuanSkema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,16 +20,42 @@ class PenilaianController extends Controller
             ->with([
                 'user',
                 'program.units.elemenKompetensis.kriteriaUnjukKerja',
+                'apl02.unitKompetensi',
+                'portfolio.unitKompetensi',
                 'asesorAssessments' => function ($query) {
                     $query->where('asesor_id', Auth::id());
                 },
             ])
             ->findOrFail($pengajuanId);
 
+        $totalKuk = $pengajuan->program->units
+            ->flatMap->elemenKompetensis
+            ->flatMap->kriteriaUnjukKerja
+            ->count();
+
+        $useUnitAssessment = $totalKuk === 0;
+
         $penilaianTersimpan = $pengajuan->asesorAssessments
             ->keyBy('kriteria_unjuk_kerja_id');
 
-        return view('asesor.penilaian.show', compact('pengajuan', 'penilaianTersimpan'));
+        $penilaianUnitTersimpan = PengajuanAsesorUnitAssessment::where('pengajuan_skema_id', $pengajuan->id)
+            ->where('asesor_id', Auth::id())
+            ->get()
+            ->keyBy('unit_kompetensi_id');
+
+        $apl02AsesiPerUnit = $pengajuan->apl02->keyBy('unit_kompetensi_id');
+        $buktiAsesiPerUnit = $pengajuan->portfolio
+            ->where('deskripsi', 'Bukti Kompetensi APL-02')
+            ->groupBy('unit_kompetensi_id');
+
+        return view('asesor.penilaian.show', compact(
+            'pengajuan',
+            'penilaianTersimpan',
+            'penilaianUnitTersimpan',
+            'apl02AsesiPerUnit',
+            'buktiAsesiPerUnit',
+            'useUnitAssessment'
+        ));
     }
 
     public function store(Request $request, $pengajuanId)
@@ -45,6 +72,50 @@ class PenilaianController extends Controller
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
+
+        if (count($allowedKukIds) === 0) {
+            $allowedUnitIds = $pengajuan->program->units
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $request->validate([
+                'nilai_unit' => ['required', 'array', 'size:'.count($allowedUnitIds)],
+                'nilai_unit.*' => ['required', Rule::in(['K', 'BK'])],
+                'catatan_unit' => ['nullable', 'array'],
+                'catatan_unit.*' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $submittedUnitIds = collect(array_keys($request->input('nilai_unit', [])))
+                ->map(fn ($id) => (int) $id)
+                ->sort()
+                ->values()
+                ->all();
+
+            $expectedUnitIds = collect($allowedUnitIds)->sort()->values()->all();
+
+            if ($submittedUnitIds !== $expectedUnitIds) {
+                abort(422, 'Seluruh Unit Kompetensi pada skema wajib dinilai dan tidak boleh berasal dari skema lain.');
+            }
+
+            foreach ($request->input('nilai_unit', []) as $unitId => $nilai) {
+                PengajuanAsesorUnitAssessment::updateOrCreate(
+                    [
+                        'pengajuan_skema_id' => $pengajuan->id,
+                        'unit_kompetensi_id' => $unitId,
+                        'asesor_id' => Auth::id(),
+                    ],
+                    [
+                        'nilai' => $nilai,
+                        'catatan' => $request->input("catatan_unit.{$unitId}"),
+                    ]
+                );
+            }
+
+            return redirect()
+                ->route('asesor.dashboard')
+                ->with('success', 'Penilaian per Unit Kompetensi berhasil disimpan.');
+        }
 
         $request->validate([
             'nilai' => ['required', 'array'],
