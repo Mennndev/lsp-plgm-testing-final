@@ -91,6 +91,9 @@ class Pembayaran extends Model
 
     public function canPay(): bool
     {
-        return in_array($this->status, ['pending', 'failed', 'expired'], true);
+        // Status processing pada Midtrans berarti transaksi sudah dibuat tetapi
+        // belum selesai. Asesi tetap harus bisa membuka ulang Snap untuk
+        // melanjutkan pembayaran selama transaksi belum berhasil.
+        return in_array($this->status, ['pending', 'processing', 'failed', 'expired'], true);
     }
 }
