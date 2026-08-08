@@ -10,11 +10,13 @@
     document.addEventListener('DOMContentLoaded', function() {
         initializeTabs();
         initializeAssessmentPurpose();
+        initializeUnitAssessment();
         initializeSignature();
         initializeAutoSave();
         
         // Restore tab from old input if validation failed
-        const savedTab = parseInt(document.getElementById('current_tab').value) || 1;
+        const currentTabInput = document.getElementById('current_tab');
+        const savedTab = parseInt(currentTabInput ? currentTabInput.value : '1') || 1;
         if (savedTab > 1) {
             goToTab(savedTab);
         }
@@ -69,6 +71,104 @@
     }
 
     /**
+     * APL-02 disederhanakan menjadi asesmen mandiri per Unit Kompetensi.
+     * Elemen Kompetensi dan KUK tidak digunakan pada alur pengajuan ini.
+     */
+    function initializeUnitAssessment() {
+        const tab = document.getElementById('tab-5');
+        if (!tab) return;
+
+        const title = tab.querySelector('.card-header h5');
+        if (title) {
+            title.innerHTML = '<i class="bi bi-clipboard-check"></i> Tab 5: Asesmen Mandiri (APL-02)';
+        }
+
+        const info = tab.querySelector('.card-body > .alert-info');
+        if (info) {
+            info.innerHTML = `
+                <i class="bi bi-info-circle"></i>
+                <strong>Petunjuk:</strong><br>
+                &bull; Pilih <strong>K (Kompeten)</strong> jika Anda merasa sudah menguasai Unit Kompetensi tersebut.<br>
+                &bull; Pilih <strong>BK (Belum Kompeten)</strong> jika Anda merasa belum menguasainya.<br>
+                &bull; Bukti kompetensi dapat dilampirkan untuk mendukung asesmen mandiri.<br>
+                <small class="text-muted">K/BK pada bagian ini adalah penilaian mandiri Asesi, bukan keputusan akhir Asesor.</small>
+            `;
+        }
+
+        const cards = tab.querySelectorAll('.unit-assessment-card');
+        cards.forEach((card, index) => {
+            const oldTitle = card.querySelector('.unit-header h6');
+            const oldCode = card.querySelector('.unit-header p');
+
+            if (!oldTitle || !oldCode) return;
+
+            const unitTitle = oldTitle.textContent.trim();
+            const unitCode = oldCode.textContent.replace(/^Kode Unit:\s*/i, '').trim();
+            const safeCode = escapeHtml(unitCode);
+            const safeTitle = escapeHtml(unitTitle);
+
+            card.innerHTML = `
+                <div class="unit-header mb-3">
+                    <h6 class="fw-bold mb-2">
+                        <i class="bi bi-check2-square text-primary"></i>
+                        ${safeTitle}
+                    </h6>
+                    <p class="small text-muted mb-0">Kode Unit: ${safeCode}</p>
+                </div>
+
+                <input type="hidden"
+                       name="unit_assessment[${index}][kode_unit]"
+                       value="${safeCode}">
+
+                <div class="row align-items-end g-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Penilaian Mandiri <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-4 border rounded p-3 bg-light">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input"
+                                       type="radio"
+                                       name="unit_assessment[${index}][status]"
+                                       id="unit_${index}_k"
+                                       value="K"
+                                       required>
+                                <label class="form-check-label" for="unit_${index}_k">
+                                    <strong>K</strong> - Kompeten
+                                </label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input"
+                                       type="radio"
+                                       name="unit_assessment[${index}][status]"
+                                       id="unit_${index}_bk"
+                                       value="BK"
+                                       required>
+                                <label class="form-check-label" for="unit_${index}_bk">
+                                    <strong>BK</strong> - Belum Kompeten
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold">Bukti Kompetensi <span class="text-muted fw-normal">(Opsional)</span></label>
+                        <input type="file"
+                               class="form-control"
+                               name="unit_evidence[${index}]"
+                               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                        <small class="text-muted">Maksimal 2MB. Format: PDF, JPG, PNG, DOC, DOCX.</small>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    /**
      * Initialize tab navigation
      */
     function initializeTabs() {
@@ -117,7 +217,8 @@
 
         // Update current tab
         currentTab = tabNumber;
-        document.getElementById('current_tab').value = tabNumber;
+        const currentTabInput = document.getElementById('current_tab');
+        if (currentTabInput) currentTabInput.value = tabNumber;
 
         // Update tab items
         document.querySelectorAll('.tab-item').forEach(tab => {
@@ -157,7 +258,6 @@
 
         requiredFields.forEach(field => {
             if (field.type === 'checkbox' || field.type === 'radio') {
-                // For checkboxes and radios, check if at least one is checked in the group
                 const name = field.getAttribute('name');
                 if (name) {
                     const checkedFields = currentContent.querySelectorAll(`[name="${name}"]:checked`);
@@ -169,7 +269,6 @@
                     }
                 }
             } else if (field.type === 'file') {
-                // For file inputs, check if file is selected
                 if (field.files.length === 0 && field.hasAttribute('required')) {
                     isValid = false;
                     field.classList.add('is-invalid');
@@ -177,7 +276,6 @@
                     field.classList.remove('is-invalid');
                 }
             } else {
-                // For other inputs
                 if (!field.value.trim()) {
                     isValid = false;
                     field.classList.add('is-invalid');
@@ -210,7 +308,6 @@
                     isValid = false;
                 }
             } else if (field.type === 'checkbox') {
-                // For agreement checkbox
                 if (!field.checked && field.hasAttribute('required')) {
                     isValid = false;
                 }
@@ -241,7 +338,6 @@
         let lastX = 0;
         let lastY = 0;
 
-        // Drawing functions
         function startDrawing(e) {
             isDrawing = true;
             const rect = canvas.getBoundingClientRect();
@@ -273,18 +369,14 @@
             isDrawing = false;
         }
 
-        // Mouse events
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('mouseup', stopDrawing);
         canvas.addEventListener('mouseout', stopDrawing);
-
-        // Touch events
         canvas.addEventListener('touchstart', startDrawing);
         canvas.addEventListener('touchmove', draw);
         canvas.addEventListener('touchend', stopDrawing);
 
-        // Modal controls
         const modalBackdrop = document.getElementById('signature-modal-backdrop');
         const openBtn = document.getElementById('open-signature-modal');
         const closeBtn = document.querySelector('.close-signature-modal');
@@ -293,20 +385,20 @@
         const saveBtn = document.getElementById('btn-signature-save');
         const uploadInput = document.getElementById('signature-upload');
 
-        if (openBtn) {
+        if (openBtn && modalBackdrop) {
             openBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 modalBackdrop.classList.add('show');
             });
         }
 
-        if (closeBtn) {
+        if (closeBtn && modalBackdrop) {
             closeBtn.addEventListener('click', function() {
                 modalBackdrop.classList.remove('show');
             });
         }
 
-        if (cancelBtn) {
+        if (cancelBtn && modalBackdrop) {
             cancelBtn.addEventListener('click', function() {
                 modalBackdrop.classList.remove('show');
             });
@@ -318,15 +410,16 @@
             });
         }
 
-        if (saveBtn) {
+        if (saveBtn && modalBackdrop) {
             saveBtn.addEventListener('click', function() {
                 const dataURL = canvas.toDataURL('image/png');
-                document.getElementById('ttd_digital').value = dataURL;
+                const signatureInput = document.getElementById('ttd_digital');
+                if (signatureInput) signatureInput.value = dataURL;
                 
                 const preview = document.getElementById('signature-preview');
                 const previewImg = document.getElementById('signature-preview-img');
-                previewImg.src = dataURL;
-                preview.style.display = 'block';
+                if (previewImg) previewImg.src = dataURL;
+                if (preview) preview.style.display = 'block';
                 
                 modalBackdrop.classList.remove('show');
                 alert('Tanda tangan berhasil disimpan!');
@@ -351,12 +444,13 @@
             });
         }
 
-        // Close modal on backdrop click
-        modalBackdrop.addEventListener('click', function(e) {
-            if (e.target === modalBackdrop) {
-                modalBackdrop.classList.remove('show');
-            }
-        });
+        if (modalBackdrop) {
+            modalBackdrop.addEventListener('click', function(e) {
+                if (e.target === modalBackdrop) {
+                    modalBackdrop.classList.remove('show');
+                }
+            });
+        }
     }
 
     /**
@@ -369,27 +463,19 @@
         let saveTimeout;
         const indicator = document.getElementById('auto-save-indicator');
 
-        // Auto-save on input change (debounced)
         form.addEventListener('input', function() {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(function() {
-                saveDraft();
-            }, 3000); // Save after 3 seconds of no typing
+                if (indicator) {
+                    indicator.classList.add('show');
+                    setTimeout(function() {
+                        indicator.classList.remove('show');
+                    }, 2000);
+                }
+            }, 3000);
         });
-
-        function saveDraft() {
-            // In a real implementation, this would send an AJAX request
-            // For now, we'll just show the indicator
-            if (indicator) {
-                indicator.classList.add('show');
-                setTimeout(function() {
-                    indicator.classList.remove('show');
-                }, 2000);
-            }
-        }
     }
 
-    // Make goToTab available globally for external use
     window.goToTab = goToTab;
 
 })();
