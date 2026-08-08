@@ -28,17 +28,20 @@ class StorePengajuanRequest extends FormRequest
             'alamat_rumah' => 'required|string',
             'kode_pos' => 'nullable|string|max:10',
             'telepon_rumah' => 'nullable|string|max:20',
-            'telepon_kantor' => 'nullable|string|max:20',
             'hp' => 'required|string|max:30',
             'email' => 'required|email|max:255',
 
             'kualifikasi_pendidikan' => 'nullable|string|max:100',
             'pekerjaan' => 'required|string|max:255',
-            'nama_institusi' => 'nullable|string|max:255',
-            'jabatan' => 'nullable|string|max:255',
-            'alamat_kantor' => 'nullable|string',
-            'fax' => 'nullable|string|max:20',
-            'email_kantor' => 'nullable|email|max:255',
+
+            // Jika Asesi belum/tidak bekerja, detail kantor tidak relevan dan tidak divalidasi.
+            'nama_institusi' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|string|max:255',
+            'jabatan' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|string|max:255',
+            'alamat_kantor' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|string',
+            'telepon_kantor' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|string|max:20',
+            'fax' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|string|max:20',
+            'email_kantor' => 'exclude_if:pekerjaan,Belum/Tidak Bekerja|nullable|email|max:255',
+
             'nama_sertifikat' => 'nullable|string|max:255',
             'nomor_sertifikat' => 'nullable|string|max:255',
 
@@ -139,6 +142,7 @@ class StorePengajuanRequest extends FormRequest
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'pekerjaan.required' => 'Pekerjaan wajib dipilih.',
+            'email_kantor.email' => 'Email institusi/perusahaan harus berupa alamat email yang valid.',
             'tujuan_asesmen.required' => 'Tujuan asesmen wajib dipilih.',
             'tujuan_asesmen.size' => 'Pilih satu tujuan asesmen.',
             'tujuan_asesmen.*.in' => 'Tujuan asesmen tidak valid.',
