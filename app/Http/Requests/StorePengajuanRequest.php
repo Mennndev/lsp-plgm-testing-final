@@ -61,11 +61,18 @@ class StorePengajuanRequest extends FormRequest
             'bukti_administratif.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
             'bukti_portofolio' => 'nullable|array',
             'bukti_portofolio.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
+
+            // APL-02 disederhanakan menjadi penilaian mandiri per Unit Kompetensi.
+            // K/BK di sini adalah penilaian mandiri Asesi, bukan hasil akhir Asesor.
+            'unit_assessment' => 'required|array|min:1',
+            'unit_assessment.*.kode_unit' => 'required|string|max:100',
+            'unit_assessment.*.status' => ['required', Rule::in(['K', 'BK'])],
+            'unit_evidence' => 'nullable|array',
+            'unit_evidence.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
+
+            // Field lama tetap diterima secara opsional agar data/halaman lama tidak langsung rusak.
             'bukti_kompetensi' => 'nullable|array',
             'bukti_kompetensi.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
-
-            'self_assessment' => 'required|array|min:1',
-            'self_assessment.*' => ['required', Rule::in(['K', 'BK'])],
             'portfolio' => 'nullable|array',
             'portfolio.*.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
             'portfolio_deskripsi' => 'nullable|array',
@@ -78,34 +85,41 @@ class StorePengajuanRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            if ($validator->errors()->has('program_pelatihan_id') || $validator->errors()->has('self_assessment')) {
+            if ($validator->errors()->has('program_pelatihan_id') || $validator->errors()->has('unit_assessment')) {
                 return;
             }
 
             $programId = (int) $this->input('program_pelatihan_id');
-            $submittedKukIds = collect(array_keys($this->input('self_assessment', [])))
-                ->map(fn ($id) => (int) $id)
+
+            $expectedUnitCodes = DB::table('unit_kompetensis')
+                ->where('program_pelatihan_id', $programId)
+                ->pluck('kode_unit')
+                ->map(fn ($kode) => (string) $kode)
                 ->sort()
                 ->values();
 
-            $expectedKukIds = DB::table('kriteria_unjuk_kerja as kuk')
-                ->join('elemen_kompetensis as elemen', 'elemen.id', '=', 'kuk.elemen_kompetensi_id')
-                ->join('unit_kompetensis as unit', 'unit.id', '=', 'elemen.unit_kompetensi_id')
-                ->where('unit.program_pelatihan_id', $programId)
-                ->pluck('kuk.id')
-                ->map(fn ($id) => (int) $id)
-                ->sort()
-                ->values();
-
-            if ($expectedKukIds->isEmpty()) {
-                $validator->errors()->add('self_assessment', 'Skema belum memiliki KUK yang dapat dinilai.');
+            if ($expectedUnitCodes->isEmpty()) {
+                $validator->errors()->add('unit_assessment', 'Skema belum memiliki Unit Kompetensi yang dapat dinilai.');
                 return;
             }
 
-            if ($submittedKukIds->all() !== $expectedKukIds->all()) {
+            $submittedUnitCodes = collect($this->input('unit_assessment', []))
+                ->pluck('kode_unit')
+                ->filter(fn ($kode) => is_string($kode) && $kode !== '')
+                ->map(fn ($kode) => (string) $kode)
+                ->values();
+
+            if ($submittedUnitCodes->duplicates()->isNotEmpty()) {
+                $validator->errors()->add('unit_assessment', 'Unit Kompetensi tidak boleh dinilai lebih dari satu kali.');
+                return;
+            }
+
+            $submittedUnitCodes = $submittedUnitCodes->sort()->values();
+
+            if ($submittedUnitCodes->all() !== $expectedUnitCodes->all()) {
                 $validator->errors()->add(
-                    'self_assessment',
-                    'Seluruh KUK pada skema wajib diisi dan tidak boleh berasal dari skema lain.'
+                    'unit_assessment',
+                    'Seluruh Unit Kompetensi pada skema wajib dinilai K atau BK dan tidak boleh berasal dari skema lain.'
                 );
             }
         });
@@ -130,8 +144,13 @@ class StorePengajuanRequest extends FormRequest
             'tujuan_asesmen.*.in' => 'Tujuan asesmen tidak valid.',
             'dokumen.*.mimes' => 'Format dokumen harus PDF, JPG, PNG, DOC, atau DOCX.',
             'dokumen.*.max' => 'Ukuran dokumen maksimal 2MB.',
-            'self_assessment.required' => 'Self assessment wajib diisi.',
-            'self_assessment.array' => 'Self assessment tidak valid.',
+            'unit_assessment.required' => 'Penilaian mandiri Unit Kompetensi wajib diisi.',
+            'unit_assessment.array' => 'Penilaian mandiri Unit Kompetensi tidak valid.',
+            'unit_assessment.*.kode_unit.required' => 'Kode Unit Kompetensi tidak valid.',
+            'unit_assessment.*.status.required' => 'Pilih K atau BK untuk setiap Unit Kompetensi.',
+            'unit_assessment.*.status.in' => 'Nilai penilaian mandiri harus K atau BK.',
+            'unit_evidence.*.mimes' => 'Bukti kompetensi harus berformat PDF, JPG, PNG, DOC, atau DOCX.',
+            'unit_evidence.*.max' => 'Ukuran bukti kompetensi maksimal 2MB.',
             'portfolio.*.*.max' => 'Ukuran file portfolio maksimal 2MB.',
             'agree.accepted' => 'Anda harus menyetujui pernyataan.',
             'ttd_digital.required' => 'Tanda tangan digital wajib diisi.',
