@@ -33,7 +33,7 @@ class ProfileController extends Controller
         DB::transaction(function () use ($user, $validated): void {
             $user->update([
                 'nama' => $validated['nama'],
-                'no_hp' => $validated['no_hp'] ?? null,
+                'no_hp' => $validated['no_hp'],
             ]);
 
             Pendaftaran::updateOrCreate(
@@ -50,6 +50,10 @@ class ProfileController extends Controller
                     'pendidikan' => $validated['pendidikan'],
                     'pekerjaan' => $validated['pekerjaan'],
                     'instansi' => $validated['instansi'] ?? null,
+                    'jabatan' => $validated['jabatan'] ?? null,
+                    'email_instansi' => $validated['email_instansi'] ?? null,
+                    'alamat_instansi' => $validated['alamat_instansi'] ?? null,
+                    'telepon_instansi' => $validated['telepon_instansi'] ?? null,
                 ]
             );
         });
