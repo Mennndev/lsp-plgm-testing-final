@@ -34,6 +34,17 @@
             background: #fff;
         }
 
+        .employment-details {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #e8edf4;
+        }
+
+        .employment-hint {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
         @media (max-width: 767.98px) {
             .pe-account-grid {
                 grid-template-columns: 1fr;
@@ -238,8 +249,48 @@
                                        value="{{ old('instansi', $pendaftaran->instansi ?? '') }}"
                                        placeholder="Nama instansi atau perusahaan">
                                 @error('instansi')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                <small id="instansiHint" class="text-muted">Kosongkan jika tidak bekerja.</small>
                             </div>
+                        </div>
+
+                        <div class="employment-details" id="employmentDetails">
+                            <div class="row pe-row-gap">
+                                <div class="col-md-6">
+                                    <label class="form-label">Jabatan <span class="text-muted">(opsional)</span></label>
+                                    <input id="jabatan" type="text" name="jabatan"
+                                           class="form-control @error('jabatan') is-invalid @enderror"
+                                           value="{{ old('jabatan', $pendaftaran->jabatan ?? '') }}"
+                                           placeholder="Contoh: Staff Administrasi">
+                                    @error('jabatan')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Email Institusi/Perusahaan <span class="text-muted">(opsional)</span></label>
+                                    <input id="email_instansi" type="email" name="email_instansi"
+                                           class="form-control @error('email_instansi') is-invalid @enderror"
+                                           value="{{ old('email_instansi', $pendaftaran->email_instansi ?? '') }}"
+                                           placeholder="nama@perusahaan.com">
+                                    @error('email_instansi')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+
+                                <div class="col-md-8">
+                                    <label class="form-label">Alamat Institusi/Perusahaan <span class="text-muted">(opsional)</span></label>
+                                    <textarea id="alamat_instansi" name="alamat_instansi"
+                                              class="form-control @error('alamat_instansi') is-invalid @enderror"
+                                              rows="2"
+                                              placeholder="Alamat institusi atau perusahaan">{{ old('alamat_instansi', $pendaftaran->alamat_instansi ?? '') }}</textarea>
+                                    @error('alamat_instansi')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">Telepon Institusi/Perusahaan <span class="text-muted">(opsional)</span></label>
+                                    <input id="telepon_instansi" type="text" name="telepon_instansi"
+                                           class="form-control @error('telepon_instansi') is-invalid @enderror"
+                                           value="{{ old('telepon_instansi', $pendaftaran->telepon_instansi ?? '') }}"
+                                           placeholder="Contoh: 022xxxxxxx">
+                                    @error('telepon_instansi')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                            </div>
+                            <div class="employment-hint mt-2" id="employmentHint">Data institusi dapat dikosongkan jika tidak bekerja.</div>
                         </div>
                     </div>
 
@@ -320,21 +371,24 @@
         });
 
         const pekerjaan = document.getElementById('pekerjaan');
-        const instansi = document.getElementById('instansi');
-        const instansiHint = document.getElementById('instansiHint');
+        const employmentFields = ['instansi', 'jabatan', 'email_instansi', 'alamat_instansi', 'telepon_instansi']
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        const employmentHint = document.getElementById('employmentHint');
 
         function syncEmploymentFields() {
-            if (!pekerjaan || !instansi) return;
+            if (!pekerjaan) return;
 
             const tidakBekerja = pekerjaan.value === 'Belum/Tidak Bekerja';
-            instansi.disabled = tidakBekerja;
-            if (tidakBekerja) {
-                instansi.value = '';
-                instansi.placeholder = 'Tidak diperlukan karena belum/tidak bekerja';
-                if (instansiHint) instansiHint.textContent = 'Data instansi tidak diperlukan untuk status Belum/Tidak Bekerja.';
-            } else {
-                instansi.placeholder = 'Nama instansi atau perusahaan';
-                if (instansiHint) instansiHint.textContent = 'Kosongkan jika tidak memiliki instansi/perusahaan.';
+            employmentFields.forEach(function (field) {
+                field.disabled = tidakBekerja;
+                if (tidakBekerja) field.value = '';
+            });
+
+            if (employmentHint) {
+                employmentHint.textContent = tidakBekerja
+                    ? 'Data institusi/perusahaan tidak diperlukan karena status pekerjaan Belum/Tidak Bekerja.'
+                    : 'Lengkapi data institusi/perusahaan jika sesuai dengan kondisi pekerjaan Anda.';
             }
         }
 
