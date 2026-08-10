@@ -375,20 +375,28 @@
             .map(id => document.getElementById(id))
             .filter(Boolean);
         const employmentHint = document.getElementById('employmentHint');
+        const nonWorkingStatuses = ['Belum/Tidak Bekerja', 'Mengurus Rumah Tangga'];
 
         function syncEmploymentFields() {
             if (!pekerjaan) return;
 
-            const tidakBekerja = pekerjaan.value === 'Belum/Tidak Bekerja';
+            const employmentNotApplicable = nonWorkingStatuses.includes(pekerjaan.value);
+
             employmentFields.forEach(function (field) {
-                field.disabled = tidakBekerja;
-                if (tidakBekerja) field.value = '';
+                field.disabled = employmentNotApplicable;
+                if (employmentNotApplicable) field.value = '';
             });
 
             if (employmentHint) {
-                employmentHint.textContent = tidakBekerja
-                    ? 'Data institusi/perusahaan tidak diperlukan karena status pekerjaan Belum/Tidak Bekerja.'
-                    : 'Lengkapi data institusi/perusahaan jika sesuai dengan kondisi pekerjaan Anda.';
+                if (pekerjaan.value === 'Belum/Tidak Bekerja') {
+                    employmentHint.textContent = 'Data institusi/perusahaan tidak diperlukan karena status pekerjaan Belum/Tidak Bekerja.';
+                } else if (pekerjaan.value === 'Mengurus Rumah Tangga') {
+                    employmentHint.textContent = 'Data institusi/perusahaan tidak diperlukan untuk status Mengurus Rumah Tangga.';
+                } else if (pekerjaan.value === 'Pelajar/Mahasiswa') {
+                    employmentHint.textContent = 'Untuk Pelajar/Mahasiswa, data institusi dapat diisi dengan nama sekolah atau perguruan tinggi.';
+                } else {
+                    employmentHint.textContent = 'Lengkapi data institusi/perusahaan jika sesuai dengan kondisi pekerjaan Anda.';
+                }
             }
         }
 
