@@ -24,14 +24,18 @@ class PendaftaranController extends Controller
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'no_hp' => ['required', 'string', 'max:20'],
+            'no_hp' => ['required', 'string', 'max:20', 'unique:users,no_hp'],
             'jenis_kelamin' => ['required', 'in:Laki-laki,Perempuan'],
             'tempat_lahir' => ['required', 'string', 'max:255'],
             'tanggal_lahir' => ['required', 'date', 'before:today'],
-            'nik' => ['required', 'digits:16'],
+            'nik' => ['required', 'digits:16', 'unique:pendaftarans,no_ktp'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'ttd_digital' => ['required', 'string', 'regex:/^data:image\/(png|jpe?g);base64,/i'],
             'setuju' => ['accepted'],
+        ], [
+            'email.unique' => 'Email sudah terdaftar. Silakan gunakan email lain atau login dengan akun yang sudah ada.',
+            'no_hp.unique' => 'Nomor handphone sudah terdaftar. Silakan gunakan nomor handphone lain.',
+            'nik.unique' => 'NIK sudah terdaftar. Satu NIK hanya dapat digunakan untuk satu akun Asesi.',
         ]);
 
         [$metadata, $encodedSignature] = explode(',', $validated['ttd_digital'], 2);
