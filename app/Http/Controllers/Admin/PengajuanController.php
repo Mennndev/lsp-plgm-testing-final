@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Pembayaran;
 use App\Models\PengajuanSkema;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PengajuanController extends Controller
 {
@@ -18,26 +20,23 @@ class PengajuanController extends Controller
     {
         $query = PengajuanSkema::with(['user', 'program']);
 
-        // Filter by status
-        if ($request->has('status') && $request->status != '') {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by program
-        if ($request->has('program') && $request->program != '') {
+        if ($request->filled('program')) {
             $query->where('program_pelatihan_id', $request->program);
         }
 
-        // Filter by date
-        if ($request->has('tanggal_dari') && $request->tanggal_dari != '') {
+        if ($request->filled('tanggal_dari')) {
             $query->whereDate('tanggal_pengajuan', '>=', $request->tanggal_dari);
         }
-        if ($request->has('tanggal_sampai') && $request->tanggal_sampai != '') {
+
+        if ($request->filled('tanggal_sampai')) {
             $query->whereDate('tanggal_pengajuan', '<=', $request->tanggal_sampai);
         }
 
-        // Search
-        if ($request->has('search') && $request->search != '') {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('user', function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
@@ -45,8 +44,7 @@ class PengajuanController extends Controller
             });
         }
 
-        $pengajuanList = $query->orderBy('tanggal_pengajuan', 'desc')
-            ->paginate(20);
+        $pengajuanList = $query->orderBy('tanggal_pengajuan', 'desc')->paginate(20);
 
         return view('admin.pengajuan.index', compact('pengajuanList'));
     }
@@ -57,6 +55,8 @@ class PengajuanController extends Controller
             'user',
             'program',
             'apl01',
+            'apl02.unitKompetensi',
+            'portfolio.unitKompetensi',
             'buktiKompetensi.kuk.elemen.unit',
             'pengajuanBuktiAdministratif',
             'pengajuanBuktiPortofolio',
@@ -68,44 +68,72 @@ class PengajuanController extends Controller
             'asesors',
         ])->findOrFail($id);
 
+        // Data baru APL-02 berbasis Unit Kompetensi.
+        $apl02Unit = $pengajuan->apl02;
+        $buktiUnit = $pengajuan->portfolio
+            ->where('deskripsi', 'Bukti Kompetensi APL-02')
+            ->groupBy('unit_kompetensi_id');
+
+        // Data legacy tetap disediakan untuk pengajuan lama berbasis KUK.
         $selfAssessments = $pengajuan->selfAssessments()->with('kuk.elemen.unit')->get();
         $buktiKompetensi = $pengajuan->buktiKompetensi;
+
         $listAsesor = User::where('role', 'asesor')->get();
         $assignedAsesorId = $pengajuan->asesors->first()?->id;
 
-        return view('admin.pengajuan.show', compact('pengajuan', 'selfAssessments', 'buktiKompetensi', 'listAsesor', 'assignedAsesorId'));
+        return view('admin.pengajuan.show', compact(
+            'pengajuan',
+            'apl02Unit',
+            'buktiUnit',
+            'selfAssessments',
+            'buktiKompetensi',
+            'listAsesor',
+            'assignedAsesorId'
+        ));
     }
 
     public function approve($id, Request $request)
     {
-        $request->validate([
-            'catatan_admin' => 'nullable|string',
-        ]);
+        $request->validate(['catatan_admin' => 'nullable|string']);
 
-        $pengajuan = PengajuanSkema::with(['user', 'program'])->findOrFail($id);
+        $pengajuan = DB::transaction(function () use ($id, $request) {
+            $pengajuan = PengajuanSkema::with(['user', 'program'])->lockForUpdate()->findOrFail($id);
 
-        $pengajuan->update([
-            'status' => 'approved',
-            'tanggal_disetujui' => now(),
-            'catatan_admin' => $request->catatan_admin,
-            'approved_by' => Auth::id(),
-        ]);
+            if (in_array($pengajuan->status, ['approved', 'paid'], true)) {
+                return $pengajuan;
+            }
 
-        // Buat record pembayaran (tanpa snap token dulu, nanti generate saat user buka halaman bayar)
-        \App\Models\Pembayaran::create([
-            'pengajuan_skema_id' => $pengajuan->id,
-            'user_id' => $pengajuan->user_id,
-            'order_id' => \App\Models\Pembayaran::generateOrderId(),
-            'nominal' => $pengajuan->program->estimasi_biaya ?? 500000,
-            'status' => 'pending',
-            'expired_at' => now()->addDays(7), // 7 hari untuk bayar
-        ]);
+            if ($pengajuan->status !== 'pending') {
+                abort(422, 'Hanya pengajuan berstatus menunggu yang dapat disetujui.');
+            }
 
-        // Kirim notifikasi ke user
-        \App\Services\NotificationService::sendPengajuanApproved($pengajuan->user, $pengajuan);
+            $pengajuan->update([
+                'status' => 'approved',
+                'tanggal_disetujui' => now(),
+                'catatan_admin' => $request->catatan_admin,
+                'approved_by' => Auth::id(),
+            ]);
+
+            Pembayaran::firstOrCreate(
+                ['pengajuan_skema_id' => $pengajuan->id],
+                [
+                    'user_id' => $pengajuan->user_id,
+                    'order_id' => Pembayaran::generateOrderId(),
+                    'nominal' => $pengajuan->program->estimasi_biaya ?? self::DEFAULT_PAYMENT_AMOUNT,
+                    'status' => 'pending',
+                    'expired_at' => now()->addDays(7),
+                ]
+            );
+
+            return $pengajuan;
+        });
+
+        if ($pengajuan->wasChanged('status')) {
+            NotificationService::sendPengajuanApproved($pengajuan->user, $pengajuan);
+        }
 
         return redirect()->route('admin.pengajuan.show', $id)
-            ->with('success', 'Pengajuan berhasil disetujui.  User dapat melakukan pembayaran.');
+            ->with('success', 'Pengajuan berhasil disetujui. User dapat melakukan pembayaran.');
     }
 
     public function reject($id, Request $request)
@@ -118,13 +146,16 @@ class PengajuanController extends Controller
 
         $pengajuan = PengajuanSkema::with(['user', 'program'])->findOrFail($id);
 
+        if ($pengajuan->status === 'paid') {
+            return back()->with('error', 'Pengajuan yang sudah dibayar tidak dapat ditolak.');
+        }
+
         $pengajuan->update([
             'status' => 'rejected',
             'catatan_admin' => $request->catatan_admin,
             'approved_by' => Auth::id(),
         ]);
 
-        // Kirim notifikasi ke user
         NotificationService::sendPengajuanRejected($pengajuan->user, $pengajuan, $request->catatan_admin);
 
         return redirect()->route('admin.pengajuan.show', $id)
@@ -134,22 +165,26 @@ class PengajuanController extends Controller
     public function assignAsesor(Request $request, $pengajuanId)
     {
         $request->validate([
-            'asesor_id' => 'required|exists:users,id',
+            'asesor_id' => [
+                'required',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'asesor')),
+            ],
+        ], [
+            'asesor_id.exists' => 'User yang dipilih bukan asesor yang valid.',
         ]);
 
-        // Hapus dulu kalau sebelumnya sudah ada (biar 1 asesor saja)
-        DB::table('pengajuan_asesor')
-            ->where('pengajuan_skema_id', $pengajuanId)
-            ->delete();
+        PengajuanSkema::findOrFail($pengajuanId);
 
-        // Insert baru
-        DB::table('pengajuan_asesor')->insert([
-            'pengajuan_skema_id' => $pengajuanId,
-            'asesor_id' => $request->asesor_id,
-            'role' => 'utama',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($request, $pengajuanId): void {
+            DB::table('pengajuan_asesor')->where('pengajuan_skema_id', $pengajuanId)->delete();
+            DB::table('pengajuan_asesor')->insert([
+                'pengajuan_skema_id' => $pengajuanId,
+                'asesor_id' => $request->asesor_id,
+                'role' => 'utama',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
 
         return back()->with('success', 'Asesor berhasil ditugaskan');
     }

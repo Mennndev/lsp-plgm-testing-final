@@ -17,7 +17,11 @@ class StoreJadwalAsesmenRequest extends FormRequest
     {
         return [
             'pengajuan_skema_id' => ['required', 'integer', 'exists:pengajuan_skema,id'],
-            'asesor_id' => ['nullable', 'integer', 'exists:users,id'],
+            'asesor_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'asesor')),
+            ],
             'tanggal_mulai' => ['required', 'date'],
             'tanggal_selesai' => ['nullable', 'date', 'after:tanggal_mulai'],
             'mode_asesmen' => ['required', Rule::in(['offline', 'online'])],
@@ -50,6 +54,7 @@ class StoreJadwalAsesmenRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'asesor_id.exists' => 'Asesor yang dipilih tidak valid.',
             'tanggal_mulai.date' => 'Tanggal mulai harus berupa tanggal yang valid.',
             'tanggal_selesai.after' => 'Tanggal selesai harus lebih dari tanggal mulai.',
             'lokasi.required_if' => 'Lokasi wajib diisi untuk asesmen offline.',

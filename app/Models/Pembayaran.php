@@ -18,6 +18,8 @@ class Pembayaran extends Model
         'payment_type',
         'transaction_id',
         'transaction_status',
+        'transaction_time',
+        'gross_amount',
         'snap_token',
         'pdf_url',
         'payment_details',
@@ -29,7 +31,9 @@ class Pembayaran extends Model
 
     protected $casts = [
         'nominal' => 'decimal:2',
+        'gross_amount' => 'decimal:2',
         'payment_details' => 'array',
+        'transaction_time' => 'datetime',
         'paid_at' => 'datetime',
         'expired_at' => 'datetime',
     ];
@@ -49,30 +53,27 @@ class Pembayaran extends Model
         return $this->belongsTo(User::class, 'verifier_id');
     }
 
-    // Generate Order ID unik
-    public static function generateOrderId()
+    public static function generateOrderId(): string
     {
-        return 'LSP-' . date('YmdHis') . '-' . strtoupper(uniqid());
+        return 'LSP-'.now()->format('YmdHis').'-'.strtoupper(uniqid());
     }
 
-    // Status label
-    public function getStatusLabelAttribute()
+    public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Menunggu Pembayaran',
             'processing' => 'Sedang Diproses',
             'success' => 'Berhasil',
             'failed' => 'Gagal',
             'expired' => 'Kadaluarsa',
             'refunded' => 'Dikembalikan',
-            default => $this->status,
+            default => ucfirst((string) $this->status),
         };
     }
 
-    // Status badge color
-    public function getStatusBadgeColorAttribute()
+    public function getStatusBadgeColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'warning',
             'processing' => 'info',
             'success' => 'success',
@@ -83,16 +84,16 @@ class Pembayaran extends Model
         };
     }
 
-    // Format nominal
-    public function getFormattedNominalAttribute()
+    public function getFormattedNominalAttribute(): string
     {
-        return 'Rp ' . number_format($this->nominal, 0, ',', '.');
+        return 'Rp '.number_format((float) $this->nominal, 0, ',', '.');
     }
 
-    // Cek apakah bisa bayar
-    public function canPay()
+    public function canPay(): bool
     {
-        return in_array($this->status, ['pending', 'failed', 'expired']);
+        // Status processing pada Midtrans berarti transaksi sudah dibuat tetapi
+        // belum selesai. Asesi tetap harus bisa membuka ulang Snap untuk
+        // melanjutkan pembayaran selama transaksi belum berhasil.
+        return in_array($this->status, ['pending', 'processing', 'failed', 'expired'], true);
     }
-
 }

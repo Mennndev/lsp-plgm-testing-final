@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Models\User;
 use App\Models\PengajuanSkema;
 use App\Models\ProgramPelatihan;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -12,55 +12,35 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Test that admin dashboard view has pengajuanTerbaru variable
-     */
     public function test_admin_dashboard_has_pengajuan_terbaru_variable(): void
     {
-        // Create an admin user
         $admin = User::factory()->create([
-            'name' => 'Admin User',
+            'nama' => 'Admin User',
             'email' => 'admin@test.com',
-            'role' => 'admin'
+            'role' => 'admin',
         ]);
 
-        // Act as admin and visit dashboard
-        $response = $this->actingAs($admin)
-            ->get(route('admin.dashboard'));
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
-        // Assert the page loads successfully
-        $response->assertStatus(200);
-
-        // Assert the view receives pengajuanTerbaru variable (not pendaftaranBaru)
+        $response->assertOk();
         $response->assertViewHas('pengajuanTerbaru');
         $response->assertViewMissing('pendaftaranBaru');
     }
 
-    /**
-     * Test that dashboard controller uses PengajuanSkema model
-     */
     public function test_dashboard_displays_pengajuan_skema_data(): void
     {
-        // Create an admin user
-        $admin = User::factory()->create([
-            'role' => 'admin'
-        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['nama' => 'Test User']);
 
-        // Create a regular user
-        $user = User::factory()->create([
-            'name' => 'Test User'
-        ]);
-
-        // Create a program manually (since factory is empty)
         $program = ProgramPelatihan::create([
             'kode_skema' => 'TEST-001',
             'nama' => 'Test Program',
             'slug' => 'test-program',
             'kategori' => 'Test',
-            'is_published' => 1
+            'kategori_slug' => 'test',
+            'is_published' => true,
         ]);
 
-        // Create a pengajuan skema
         $pengajuan = PengajuanSkema::create([
             'user_id' => $user->id,
             'program_pelatihan_id' => $program->id,
@@ -68,25 +48,15 @@ class DashboardTest extends TestCase
             'tanggal_pengajuan' => now(),
         ]);
 
-        // Act as admin and visit dashboard
-        $response = $this->actingAs($admin)
-            ->get(route('admin.dashboard'));
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
-        // Assert the page loads successfully
-        $response->assertStatus(200);
+        $response->assertOk();
 
-        // Assert the view receives pengajuanTerbaru with data
-        $pengajuanTerbaru = $response->viewData('pengajuanTerbaru');
-        $this->assertNotEmpty($pengajuanTerbaru);
-        
-        // Verify it's the correct pengajuan
-        $firstPengajuan = $pengajuanTerbaru->first();
-        $this->assertEquals($pengajuan->id, $firstPengajuan->id);
-        
-        // Verify relations are loaded
+        $firstPengajuan = $response->viewData('pengajuanTerbaru')->first();
+        $this->assertSame($pengajuan->id, $firstPengajuan->id);
         $this->assertNotNull($firstPengajuan->user);
         $this->assertNotNull($firstPengajuan->program);
-        $this->assertEquals('Test User', $firstPengajuan->user->name);
-        $this->assertEquals('Test Program', $firstPengajuan->program->nama);
+        $this->assertSame('Test User', $firstPengajuan->user->nama);
+        $this->assertSame('Test Program', $firstPengajuan->program->nama);
     }
 }

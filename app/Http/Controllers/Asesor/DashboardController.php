@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Asesor;
 
 use App\Http\Controllers\Controller;
-use App\Models\PengajuanAsesor;
 use App\Models\KriteriaUnjukKerja;
+use App\Models\PengajuanAsesor;
 use App\Models\PengajuanAsesorAssessment;
+use App\Models\PengajuanAsesorUnitAssessment;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -21,37 +22,81 @@ class DashboardController extends Controller
             ->latest()
             ->get();
 
-        // Pre-load totalKuk counts grouped by program_pelatihan_id to avoid N+1
-        $programIds = $assignedPengajuan->pluck('pengajuan.program_pelatihan_id')->filter()->unique();
-        $kukCountsByProgram = KriteriaUnjukKerja::select('unit_kompetensis.program_pelatihan_id', DB::raw('COUNT(*) as total'))
+        $programIds = $assignedPengajuan
+            ->pluck('pengajuan.program_pelatihan_id')
+            ->filter()
+            ->unique();
+
+        // Skema lama: progress penilaian berbasis KUK.
+        $kukCountsByProgram = KriteriaUnjukKerja::select(
+                'unit_kompetensis.program_pelatihan_id',
+                DB::raw('COUNT(*) as total')
+            )
             ->join('elemen_kompetensis', 'kriteria_unjuk_kerja.elemen_kompetensi_id', '=', 'elemen_kompetensis.id')
             ->join('unit_kompetensis', 'elemen_kompetensis.unit_kompetensi_id', '=', 'unit_kompetensis.id')
             ->whereIn('unit_kompetensis.program_pelatihan_id', $programIds)
             ->groupBy('unit_kompetensis.program_pelatihan_id')
             ->pluck('total', 'program_pelatihan_id');
 
-        // Pre-load dinilai counts grouped by pengajuan_skema_id to avoid N+1
-        $pengajuanIds = $assignedPengajuan->pluck('pengajuan_skema_id')->filter()->unique();
-        $dinilaiCountsByPengajuan = PengajuanAsesorAssessment::select('pengajuan_skema_id', DB::raw('COUNT(*) as total'))
+        // Skema baru tanpa Elemen/KUK: progress penilaian berbasis Unit Kompetensi.
+        $unitCountsByProgram = DB::table('unit_kompetensis')
+            ->select('program_pelatihan_id', DB::raw('COUNT(*) as total'))
+            ->whereIn('program_pelatihan_id', $programIds)
+            ->groupBy('program_pelatihan_id')
+            ->pluck('total', 'program_pelatihan_id');
+
+        $pengajuanIds = $assignedPengajuan
+            ->pluck('pengajuan_skema_id')
+            ->filter()
+            ->unique();
+
+        $legacyAssessedCounts = PengajuanAsesorAssessment::select(
+                'pengajuan_skema_id',
+                DB::raw('COUNT(*) as total')
+            )
+            ->where('asesor_id', $asesorId)
+            ->whereIn('pengajuan_skema_id', $pengajuanIds)
+            ->groupBy('pengajuan_skema_id')
+            ->pluck('total', 'pengajuan_skema_id');
+
+        $unitAssessedCounts = PengajuanAsesorUnitAssessment::select(
+                'pengajuan_skema_id',
+                DB::raw('COUNT(*) as total')
+            )
             ->where('asesor_id', $asesorId)
             ->whereIn('pengajuan_skema_id', $pengajuanIds)
             ->groupBy('pengajuan_skema_id')
             ->pluck('total', 'pengajuan_skema_id');
 
         $pengajuanList = $assignedPengajuan
-            ->map(function ($assignment) use ($kukCountsByProgram, $dinilaiCountsByPengajuan) {
+            ->map(function ($assignment) use (
+                $kukCountsByProgram,
+                $unitCountsByProgram,
+                $legacyAssessedCounts,
+                $unitAssessedCounts
+            ) {
                 $pengajuan = $assignment->pengajuan;
 
                 if (! $pengajuan || ! $pengajuan->program) {
                     return null;
                 }
 
-                // Use pre-loaded data instead of querying
-                $totalKuk = $kukCountsByProgram[$pengajuan->program_pelatihan_id] ?? 0;
-                $dinilai = $dinilaiCountsByPengajuan[$pengajuan->id] ?? 0;
+                $programId = $pengajuan->program_pelatihan_id;
+                $totalKuk = (int) ($kukCountsByProgram[$programId] ?? 0);
+                $usesUnitAssessment = $totalKuk === 0;
+
+                if ($usesUnitAssessment) {
+                    $total = (int) ($unitCountsByProgram[$programId] ?? 0);
+                    $dinilai = (int) ($unitAssessedCounts[$pengajuan->id] ?? 0);
+                    $progressLabel = 'Unit';
+                } else {
+                    $total = $totalKuk;
+                    $dinilai = (int) ($legacyAssessedCounts[$pengajuan->id] ?? 0);
+                    $progressLabel = 'KUK';
+                }
 
                 $statusPenilaian = 'belum_dimulai';
-                if ($totalKuk > 0 && $dinilai >= $totalKuk) {
+                if ($total > 0 && $dinilai >= $total) {
                     $statusPenilaian = 'selesai';
                 } elseif ($dinilai > 0) {
                     $statusPenilaian = 'proses';
@@ -64,15 +109,15 @@ class DashboardController extends Controller
                     'nama_skema' => $pengajuan->program->nama,
                     'status_pengajuan' => $pengajuan->status,
                     'tanggal_pengajuan' => optional($pengajuan->tanggal_pengajuan)->format('d M Y'),
-                    'total_kuk' => $totalKuk,
+                    'total_penilaian' => $total,
                     'dinilai' => $dinilai,
-                    'persentase' => $totalKuk > 0 ? (int) round(($dinilai / $totalKuk) * 100) : 0,
+                    'progress_label' => $progressLabel,
+                    'persentase' => $total > 0 ? (int) round(($dinilai / $total) * 100) : 0,
                     'status_penilaian' => $statusPenilaian,
                 ];
             })
             ->filter();
 
-        // Calculate summary BEFORE applying filters
         $summary = [
             'total_penugasan' => $pengajuanList->count(),
             'belum_dimulai' => $pengajuanList->where('status_penilaian', 'belum_dimulai')->count(),
@@ -80,7 +125,6 @@ class DashboardController extends Controller
             'selesai' => $pengajuanList->where('status_penilaian', 'selesai')->count(),
         ];
 
-        // Apply filters AFTER summary calculation
         $search = trim((string) $request->input('q', ''));
         $penilaianStatus = $request->input('status_penilaian', 'all');
 
@@ -97,10 +141,12 @@ class DashboardController extends Controller
             $pengajuanList = $pengajuanList->where('status_penilaian', $penilaianStatus);
         }
 
-        // Paginate the filtered results
         $perPage = 10;
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
-        $currentItems = $pengajuanList->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        $currentItems = $pengajuanList
+            ->slice(($currentPage - 1) * $perPage, $perPage)
+            ->values();
+
         $paginatedList = new LengthAwarePaginator(
             $currentItems,
             $pengajuanList->count(),

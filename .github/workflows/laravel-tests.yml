@@ -83,6 +83,9 @@ jobs:
       - name: Install dependency frontend
         run: npm ci
 
+      - name: Verifikasi audit dependency
+        run: npm audit --audit-level=moderate
+
       - name: Build frontend
         run: npm run build
 
@@ -90,4 +93,4 @@ jobs:
         run: php artisan migrate:fresh --force
 
       - name: Jalankan Laravel test
-        run: php artisan test --colors=always
+        run: php artisan test --colors=always --display-all-issues --fail-on-risky

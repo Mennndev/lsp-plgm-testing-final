@@ -4,13 +4,14 @@ namespace App\Services;
 
 use App\Models\Pembayaran;
 use App\Models\User;
+use Carbon\Carbon;
+use Exception;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Midtrans\Config;
+use Midtrans\Notification;
 use Midtrans\Snap;
 use Midtrans\Transaction;
-use Midtrans\Notification;
-use Exception;
-use Carbon\Carbon;
 
 class MidtransService
 {
@@ -22,9 +23,6 @@ class MidtransService
         Config::$is3ds = true;
     }
 
-    /**
-     * Generate Snap Token
-     */
     public function createSnapToken(Pembayaran $pembayaran, User $user): string
     {
         $params = [
@@ -37,14 +35,12 @@ class MidtransService
                 'email' => $user->email,
                 'phone' => $user->no_hp ?? '',
             ],
-            'item_details' => [
-                [
-                    'id' => 'SKEMA-' . $pembayaran->pengajuan_skema_id,
-                    'price' => (int) $pembayaran->nominal,
-                    'quantity' => 1,
-                    'name' => 'Sertifikasi: ' . ($pembayaran->pengajuan->program->nama ?? 'Skema Sertifikasi'),
-                ],
-            ],
+            'item_details' => [[
+                'id' => 'SKEMA-'.$pembayaran->pengajuan_skema_id,
+                'price' => (int) $pembayaran->nominal,
+                'quantity' => 1,
+                'name' => 'Sertifikasi: '.($pembayaran->pengajuan->program->nama ?? 'Skema Sertifikasi'),
+            ]],
             'callbacks' => [
                 'finish' => route('pembayaran.finish', $pembayaran->id),
             ],
@@ -55,10 +51,8 @@ class MidtransService
             ],
         ];
 
-        // Only add 'enabled_payments' if specifically configured
-        // If not configured (null), Midtrans will show all activated payment methods
         $enabledPayments = config('midtrans.enabled_payments');
-        if (!empty($enabledPayments)) {
+        if (! empty($enabledPayments)) {
             $params['enabled_payments'] = $this->parseEnabledPayments($enabledPayments);
         }
 
@@ -77,42 +71,27 @@ class MidtransService
         }
     }
 
-    /**
-     * Parse enabled payments configuration to array format
-     * 
-     * @param mixed $enabledPayments
-     * @return array
-     */
     private function parseEnabledPayments($enabledPayments): array
     {
-        // If already an array, return as is
         if (is_array($enabledPayments)) {
             return $enabledPayments;
         }
 
-        // If string, convert comma-separated values to array and trim whitespace
-        return array_map('trim', explode(',', $enabledPayments));
+        return array_values(array_filter(array_map('trim', explode(',', $enabledPayments))));
     }
 
-    /**
-     * Handle Webhook Midtrans
-     */
     public function handleNotification(): array
     {
         $notification = new Notification();
 
-        $orderId = $notification->order_id;
-        $statusCode = $notification->status_code;
-        $grossAmount = $notification->gross_amount;
-        $signatureKey = $notification->signature_key;
+        $orderId = (string) $notification->order_id;
+        $statusCode = (string) $notification->status_code;
+        $grossAmount = (string) $notification->gross_amount;
+        $signatureKey = (string) $notification->signature_key;
 
-        // VALIDASI SIGNATURE
-        $expectedSignature = hash(
-            'sha512',
-            $orderId . $statusCode . $grossAmount . config('midtrans.server_key')
-        );
+        $expectedSignature = hash('sha512', $orderId.$statusCode.$grossAmount.config('midtrans.server_key'));
 
-        if ($signatureKey !== $expectedSignature) {
+        if (! hash_equals($expectedSignature, $signatureKey)) {
             Log::warning('Midtrans signature invalid', compact('orderId'));
             abort(403, 'Invalid signature');
         }
@@ -123,55 +102,44 @@ class MidtransService
             return ['success' => false, 'message' => 'Pembayaran tidak ditemukan'];
         }
 
-        $pembayaran->update([
-            'payment_type' => $notification->payment_type,
-            'transaction_id' => $notification->transaction_id,
-            'transaction_time' => $notification->transaction_time,
-            'gross_amount' => $grossAmount,
-            'payment_details' => json_encode($notification),
-        ]);
+        $transactionStatus = (string) ($notification->transaction_status ?? '');
+        $details = json_decode(json_encode($notification), true) ?: [];
 
-        switch ($notification->transaction_status) {
-            case 'capture':
-            case 'settlement':
-                $this->markSuccess($pembayaran);
-                break;
+        DB::transaction(function () use ($pembayaran, $notification, $grossAmount, $transactionStatus, $details): void {
+            $updates = [
+                'payment_type' => $notification->payment_type ?? null,
+                'transaction_id' => $notification->transaction_id ?? null,
+                'transaction_status' => $transactionStatus ?: null,
+                'transaction_time' => $notification->transaction_time ?? null,
+                'gross_amount' => $grossAmount ?: null,
+                'payment_details' => $details,
+            ];
 
-            case 'pending':
-                $pembayaran->update(['status' => 'processing']);
-                break;
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                $updates['status'] = 'success';
+                $updates['paid_at'] = now();
+            } elseif ($transactionStatus === 'pending') {
+                $updates['status'] = 'processing';
+            } elseif (in_array($transactionStatus, ['deny', 'cancel'], true)) {
+                $updates['status'] = 'failed';
+            } elseif ($transactionStatus === 'expire') {
+                $updates['status'] = 'expired';
+            } elseif ($transactionStatus === 'refund') {
+                $updates['status'] = 'refunded';
+            }
 
-            case 'deny':
-            case 'cancel':
-                $pembayaran->update(['status' => 'failed']);
-                break;
+            $pembayaran->update($updates);
 
-            case 'expire':
-                $pembayaran->update(['status' => 'expired']);
-                break;
-
-            case 'refund':
-                $pembayaran->update(['status' => 'refunded']);
-                break;
-        }
+            if (($updates['status'] ?? null) === 'success' && $pembayaran->pengajuan->status !== 'paid') {
+                $pembayaran->pengajuan->update(['status' => 'paid']);
+            }
+        });
 
         return [
             'success' => true,
             'order_id' => $orderId,
-            'status' => $notification->transaction_status,
+            'status' => $transactionStatus,
         ];
-    }
-
-    private function markSuccess(Pembayaran $pembayaran): void
-    {
-        $pembayaran->update([
-            'status' => 'success',
-            'paid_at' => now(),
-        ]);
-
-        $pembayaran->pengajuan->update([
-            'status' => 'paid',
-        ]);
     }
 
     public function checkStatus(string $orderId): array
