@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -19,7 +18,7 @@ return new class extends Migration
             ->pluck('no_hp');
 
         if ($duplicatePhones->isNotEmpty()) {
-            throw new RuntimeException(
+            throw new \RuntimeException(
                 'Tidak dapat menambahkan unique constraint users.no_hp karena ada nomor handphone duplikat: '
                 .$duplicatePhones->take(5)->implode(', ')
             );
@@ -34,7 +33,7 @@ return new class extends Migration
             ->pluck('no_ktp');
 
         if ($duplicateNiks->isNotEmpty()) {
-            throw new RuntimeException(
+            throw new \RuntimeException(
                 'Tidak dapat menambahkan unique constraint pendaftarans.no_ktp karena ada NIK duplikat: '
                 .$duplicateNiks->take(5)->implode(', ')
             );
