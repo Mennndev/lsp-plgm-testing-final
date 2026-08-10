@@ -192,11 +192,29 @@
 
                 @if($pengajuan->apl01->tujuan_asesmen)
                     <h6 class="font-weight-bold mb-2 mt-4">Tujuan Asesmen</h6>
-                    <ul class="mb-0">
+                    <ul>
                         @foreach($pengajuan->apl01->tujuan_asesmen as $tujuan)
                             <li>{{ $tujuan }}</li>
                         @endforeach
                     </ul>
+                @endif
+
+                <h6 class="font-weight-bold mb-2 mt-4">Tanda Tangan Digital Asesi</h6>
+                @if($pengajuan->apl01->ttd)
+                    <div class="border rounded bg-white p-3 d-inline-block">
+                        <img
+                            src="{{ \Illuminate\Support\Str::startsWith($pengajuan->apl01->ttd, 'data:image') ? $pengajuan->apl01->ttd : asset('storage/'.$pengajuan->apl01->ttd) }}"
+                            alt="Tanda tangan digital {{ $pengajuan->apl01->nama_lengkap }}"
+                            style="max-width: 320px; max-height: 160px; object-fit: contain;"
+                        >
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">
+                        Tanda tangan ini diberikan Asesi pada saat mengirim pengajuan sertifikasi.
+                    </p>
+                @else
+                    <div class="alert alert-warning mb-0">
+                        Tanda tangan digital belum tersedia pada APL-01 ini.
+                    </div>
                 @endif
             </div>
         </div>
