@@ -52,8 +52,8 @@ class JadwalAsesmenController extends Controller
         $pengajuan = PengajuanSkema::with('user', 'program')
             ->findOrFail($payload['pengajuan_skema_id']);
 
-        if ($pengajuan->status !== 'approved') {
-            return back()->with('error', 'Jadwal asesmen hanya bisa dibuat untuk pengajuan yang sudah disetujui.');
+        if (! in_array($pengajuan->status, ['approved', 'paid'], true)) {
+            return back()->with('error', 'Jadwal asesmen hanya bisa dibuat untuk pengajuan yang sudah disetujui atau sudah dibayar.');
         }
 
         DB::transaction(function () use ($payload, $pengajuan, $userId) {

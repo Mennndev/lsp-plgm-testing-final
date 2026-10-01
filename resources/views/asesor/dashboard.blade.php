@@ -5,7 +5,6 @@
 @section('content')
 <h4 class="mb-4" style="color: #233C7E; font-weight: 600;">Dashboard Asesor</h4>
 
-<!-- ✅ STAT CARDS -->
 <section class="asesor-stats">
     <div class="asesor-card">
         <div class="info">
@@ -52,7 +51,6 @@
     </div>
 </section>
 
-<!-- ✅ FILTER FORM -->
 <div class="filter-card">
     <form method="GET" action="{{ route('asesor.dashboard') }}" class="row g-3 align-items-end">
         <div class="col-md-5">
@@ -76,7 +74,6 @@
     </form>
 </div>
 
-<!-- ✅ TABLE PENUGASAN -->
 <div class="asesor-table">
     <h5>Daftar Penugasan</h5>
     <div class="table-responsive">
@@ -114,7 +111,7 @@
                         </td>
                         <td>
                             <div class="d-flex justify-content-between small mb-1">
-                                <span><strong>{{ $row['dinilai'] }}</strong> / {{ $row['total_kuk'] }} KUK</span>
+                                <span><strong>{{ $row['dinilai'] }}</strong> / {{ $row['total_penilaian'] }} {{ $row['progress_label'] }}</span>
                                 <span class="fw-semibold" style="color: #233C7E;">{{ $row['persentase'] }}%</span>
                             </div>
                             <div class="progress" style="height: 6px;" role="progressbar" aria-label="Persentase kemajuan penilaian" aria-valuenow="{{ $row['persentase'] }}" aria-valuemin="0" aria-valuemax="100">

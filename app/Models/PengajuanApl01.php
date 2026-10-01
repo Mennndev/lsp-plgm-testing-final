@@ -21,13 +21,13 @@ class PengajuanApl01 extends Model
         'kode_pos',
         'telepon_rumah',
         'telepon_kantor',
+        'hp',
         'email',
         'kualifikasi_pendidikan',
         'pekerjaan',
         'nama_institusi',
         'jabatan',
         'alamat_kantor',
-        'telepon_kantor_pekerjaan',
         'fax',
         'email_kantor',
         'nama_sertifikat',
@@ -36,6 +36,7 @@ class PengajuanApl01 extends Model
         'bukti_penyertaan_dasar',
         'bukti_administrasif',
         'catatan',
+        'ttd',
     ];
 
     protected $casts = [
@@ -43,7 +44,6 @@ class PengajuanApl01 extends Model
         'tujuan_asesmen' => 'array',
     ];
 
-    // Relationship
     public function pengajuanSkema(): BelongsTo
     {
         return $this->belongsTo(PengajuanSkema::class);

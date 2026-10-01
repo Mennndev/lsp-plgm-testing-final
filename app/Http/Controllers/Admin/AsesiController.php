@@ -2,49 +2,40 @@
 
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\Pendaftaran;
+use Illuminate\Http\Request;
 
 class AsesiController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-        public function index(Request $request)
+    public function index(Request $request)
     {
-        // query dasar + relasi user
-        $query = Pendaftaran::with('user');
+        $query = Pendaftaran::with(['user', 'program']);
 
-        // FILTER PENCARIAN
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim((string) $request->input('search'));
 
-            $query->where(function ($q) use ($search) {
-                $q->where('email', 'like', "%{$search}%")
-                  ->orWhere('skema', 'like', "%{$search}%")
-                  ->orWhereHas('user', function ($u) use ($search) {
-                      $u->where('name', 'like', "%{$search}%");
-                  });
+            $query->where(function ($builder) use ($search) {
+                $builder->where('email', 'like', "%{$search}%")
+                    ->orWhere('skema', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('nama', 'like', "%{$search}%");
+                    });
             });
         }
 
-        // FILTER STATUS -> pakai kolom `setuju`
-        //  - 'pending'  => setuju = 0
-        //  - 'disetujui'=> setuju = 1
         if ($request->filled('status')) {
             if ($request->status === 'pending') {
-                $query->where('setuju', 0);
+                $query->where('setuju', false);
             } elseif ($request->status === 'disetujui') {
-                $query->where('setuju', 1);
+                $query->where('setuju', true);
             }
         }
 
-        // DATA LIST + STATISTIK
-        $asesiList        = $query->orderByDesc('created_at')->paginate(10);
-        $totalAsesi       = Pendaftaran::count();
-        $totalPending     = Pendaftaran::where('setuju', 0)->count();
-        $totalDisetujui   = Pendaftaran::where('setuju', 1)->count();
+        $asesiList = $query->orderByDesc('created_at')->paginate(10)->withQueryString();
+        $totalAsesi = Pendaftaran::count();
+        $totalPending = Pendaftaran::where('setuju', false)->count();
+        $totalDisetujui = Pendaftaran::where('setuju', true)->count();
 
         return view('admin.asesi.index', compact(
             'asesiList',
@@ -54,53 +45,10 @@ class AsesiController extends Controller
         ));
     }
 
-
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
     public function show(string $id)
     {
-        //
-    }
+        $asesi = Pendaftaran::with(['user', 'program'])->findOrFail($id);
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return view('admin.asesi.show', compact('asesi'));
     }
 }

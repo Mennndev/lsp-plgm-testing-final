@@ -8,15 +8,25 @@ use Illuminate\Support\Facades\Auth;
 
 class PengajuanController extends Controller
 {
-     public function show($id)
+    public function show($id)
     {
-        // Pastikan pengajuan ini memang milik asesor ini
         $pengajuan = PengajuanSkema::whereHas('asesors', function ($q) {
                 $q->where('users.id', Auth::id());
             })
-            ->with(['user', 'program', 'selfAssessments', 'buktiKompetensi'])
+            ->with([
+                'user',
+                'program',
+                'apl02.unitKompetensi',
+                'portfolio.unitKompetensi',
+                'selfAssessments',
+                'buktiKompetensi',
+            ])
             ->findOrFail($id);
 
-        return view('asesor.pengajuan.show', compact('pengajuan'));
+        $buktiUnit = $pengajuan->portfolio
+            ->where('deskripsi', 'Bukti Kompetensi APL-02')
+            ->groupBy('unit_kompetensi_id');
+
+        return view('asesor.pengajuan.show', compact('pengajuan', 'buktiUnit'));
     }
 }
